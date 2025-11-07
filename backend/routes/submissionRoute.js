@@ -24,7 +24,7 @@ const upload = multer({ storage });
 
 const router = express.Router();
 
-console.log("📌 Submission routes registered");
+console.log("Submission routes registered");
 
 // @desc   Submit an assignment
 // @route  POST /api/submissions/submit
