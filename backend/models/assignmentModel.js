@@ -8,7 +8,14 @@ const assignmentSchema = new mongoose.Schema({
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   deadline: { type: Date },
   answerKey: { type: String },
-  attachments: [{ type: String }] 
+  attachments: [{ type: String }],
+  // THÊM TRƯỜNG SUBJECT
+  subject: { 
+    type: String, 
+    required: true,
+    enum: ['Tiếng Việt', 'Toán', 'Tự nhiên và Xã hội', 'Tiếng Anh', 'Khoa học', 'Khác'],
+    default: 'Khác'
+  }
 }, { timestamps: true });
 
 const Assignment = mongoose.models.Assignment || mongoose.model("Assignment", assignmentSchema);

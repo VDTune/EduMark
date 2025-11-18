@@ -57,7 +57,6 @@ const Dashboard = () => {
               </Link>
               <div className="flex items-center gap-6 medium-15 text-gray-50">
                 <Link to="/" className="text-blue-600 medium-16">Lớp học</Link>
-                <Link to="/submissions" className="hover:text-blue-600 transition-colors">Bài nộp của tôi</Link>
               </div>
             </div>
             

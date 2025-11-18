@@ -2,11 +2,13 @@
 import Assignment from "../models/assignmentModel.js";
 import Classroom from "../models/classroomModel.js";
 
-// POST /api/assignments  (teacher only)
+// POST /api/assignments
 const createAssignment = async (req, res) => {
   try {
     const teacherId = req.user.userId;
-    const { title, description, classId, deadline, answerKey } = req.body;
+    // THÊM subject VÀO DESTRUCTURING
+    const { title, description, classId, deadline, answerKey, subject } = req.body;
+
     if (!title || !classId) return res.status(400).json({ success: false, message: "Missing fields" });
 
     const classroom = await Classroom.findById(classId);
@@ -15,7 +17,18 @@ const createAssignment = async (req, res) => {
 
     const attachments = req.body.attachments || [];
 
-    const assignment = new Assignment({ title, description, classId, teacherId, deadline, answerKey, attachments });
+    // TẠO ASSIGNMENT VỚI SUBJECT
+    const assignment = new Assignment({ 
+      title, 
+      description, 
+      classId, 
+      teacherId, 
+      deadline, 
+      answerKey, 
+      attachments,
+      subject: subject || 'Khác' // Mặc định là Khác nếu không chọn
+    });
+
     await assignment.save();
     res.status(201).json({ success: true, data: assignment });
   } catch (error) {
@@ -24,14 +37,13 @@ const createAssignment = async (req, res) => {
   }
 };
 
-// GET /api/assignments/class/:classId  (teacher or student of class)
+// ... (Giữ nguyên phần còn lại: getAssignmentsByClass, getAssignmentById)
 const getAssignmentsByClass = async (req, res) => {
   try {
     const classId = req.params.classId;
     const userId = req.user.userId;
     const role = req.user.role;
 
-    // Kiểm tra quyền truy cập lớp học
     const classroom = await Classroom.findById(classId);
     if (!classroom) {
       return res.status(404).json({ success: false, message: "Class not found" });
@@ -46,7 +58,7 @@ const getAssignmentsByClass = async (req, res) => {
     }
 
     const assignments = await Assignment.find({ classId })
-      .populate("teacherId", "name") // POPULATE THÔNG TIN GIÁO VIÊN
+      .populate("teacherId", "name")
       .sort({ createdAt: -1 });
     
     res.json({ success: true, data: assignments });
@@ -56,11 +68,10 @@ const getAssignmentsByClass = async (req, res) => {
   }
 };
 
-// GET /api/assignments/:id
 const getAssignmentById = async (req, res) => {
   try {
     const asg = await Assignment.findById(req.params.id)
-      .populate("teacherId", "name") // POPULATE THÔNG TIN GIÁO VIÊN
+      .populate("teacherId", "name")
       .populate("classId", "name");
     
     if (!asg) return res.status(404).json({ success: false, message: "Assignment not found" });

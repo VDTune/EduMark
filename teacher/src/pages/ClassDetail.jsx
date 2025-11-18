@@ -10,6 +10,9 @@ const ClassDetail = () => {
   const [studentEmail, setStudentEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const [addingStudent, setAddingStudent] = useState(false)
+  const [filterSubject, setFilterSubject] = useState('all')
+
+  const subjects = ['Tiếng Việt', 'Toán', 'Tự nhiên và Xã hội', 'Tiếng Anh', 'Khoa học']
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,7 +48,6 @@ const ClassDetail = () => {
       alert('Thêm học sinh thành công!')
       setStudentEmail('')
       
-      // Refresh students
       const classRes = await axios.get('/api/classrooms/my')
       const cls = classRes.data.data.find(c => c._id === classId)
       setStudents(cls?.students || [])
@@ -55,6 +57,11 @@ const ClassDetail = () => {
       setAddingStudent(false)
     }
   }
+
+  // LOGIC LỌC BÀI TẬP
+  const filteredAssignments = filterSubject === 'all'
+    ? assignments
+    : assignments.filter(a => a.subject === filterSubject)
 
   if (loading) {
     return (
@@ -67,7 +74,6 @@ const ClassDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-10">
-      {/* Navigation */}
       <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-padd-container">
           <div className="flexBetween py-4">
@@ -82,7 +88,6 @@ const ClassDetail = () => {
       </nav>
 
       <div className="max-padd-container py-8">
-        {/* Header */}
         <div className="mb-8">
           <Link to="/" className="flex items-center text-gray-50 hover:text-gray-90 mb-4 transition-colors">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,34 +109,70 @@ const ClassDetail = () => {
           </div>
         </div>
 
+        {/* THANH LỌC MÔN HỌC - ĐÃ SỬA MÀU HOVER */}
+        <div className="mb-6 flex flex-wrap gap-3">
+          <button
+            onClick={() => setFilterSubject('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${
+              filterSubject === 'all' 
+                ? 'bg-blue-600 text-white border-blue-600' 
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-10 hover:text-blue-600 hover:border-blue-200'
+            }`}
+          >
+            Tất cả
+          </button>
+          {subjects.map(sub => (
+            <button
+              key={sub}
+              onClick={() => setFilterSubject(sub)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${
+                filterSubject === sub 
+                  ? 'bg-blue-600 text-white border-blue-600' 
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-10 hover:text-blue-600 hover:border-blue-200'
+              }`}
+            >
+              {sub}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Bài tập */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flexBetween mb-6">
                 <h2 className="text-2xl font-bold text-gray-90">Bài tập</h2>
                 <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {assignments.length} bài tập
+                  {filteredAssignments.length} bài tập
                 </span>
               </div>
               
               <div className="space-y-4">
-                {assignments.length === 0 ? (
+                {filteredAssignments.length === 0 ? (
                   <div className="text-center py-8 text-gray-50">
                     <svg className="w-12 h-12 mx-auto mb-3 text-gray-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p>Chưa có bài tập nào</p>
+                    <p>Chưa có bài tập nào cho môn này</p>
                   </div>
                 ) : (
-                  assignments.map(asg => (
-                    <div key={asg._id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-200 transition-colors">
-                      <div className="flexBetween mb-3">
-                        <h3 className="text-lg font-semibold text-gray-90">{asg.title}</h3>
-                        <span className="text-sm text-gray-50">
-                          {new Date(asg.deadline).toLocaleDateString('vi-VN')}
+                  filteredAssignments.map(asg => (
+                    <div key={asg._id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-200 transition-colors group">
+                      <div className="flexBetween mb-2">
+                        <h3 className="text-lg font-semibold text-gray-90 group-hover:text-blue-600 transition-colors">{asg.title}</h3>
+                        {asg.deadline && (
+                          <span className="text-sm text-gray-50">
+                            {new Date(asg.deadline).toLocaleDateString('vi-VN')}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* HIỂN THỊ TAG SUBJECT */}
+                      <div className="mb-3">
+                        <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md font-medium border border-gray-200">
+                          {asg.subject || 'Khác'}
                         </span>
                       </div>
+
                       <p className="text-gray-50 mb-3 line-clamp-2">{asg.description}</p>
                       <div className="flexBetween">
                         <span className="text-sm text-gray-30">
@@ -151,33 +192,19 @@ const ClassDetail = () => {
             </div>
           </div>
 
-          {/* Học sinh */}
           <div className="space-y-6">
-            {/* Thêm học sinh */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-90 mb-4">Thêm học sinh</h3>
               <form onSubmit={handleAddStudent} className="space-y-4">
                 <div>
-                  <input 
-                    type="email" 
-                    value={studentEmail} 
-                    onChange={(e) => setStudentEmail(e.target.value)} 
-                    placeholder="Email học sinh" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    required 
-                  />
+                  <input type="email" value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} placeholder="Email học sinh" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" required />
                 </div>
-                <button 
-                  type="submit" 
-                  disabled={addingStudent}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50"
-                >
+                <button type="submit" disabled={addingStudent} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50">
                   {addingStudent ? 'Đang thêm...' : 'Thêm học sinh'}
                 </button>
               </form>
             </div>
 
-            {/* Danh sách học sinh */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flexBetween mb-4">
                 <h3 className="text-lg font-semibold text-gray-90">Học sinh</h3>
