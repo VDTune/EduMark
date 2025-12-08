@@ -1,0 +1,6 @@
+paddlepaddle
+paddleocr
+google-generativeai
+numpy
+opencv-python
+python-dotenv

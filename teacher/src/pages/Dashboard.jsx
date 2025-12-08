@@ -45,7 +45,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-10">
       {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
         <div className="max-padd-container">
           <div className="flexBetween py-4">
             <div className="flex items-center gap-8">

@@ -62,7 +62,7 @@ const getMyClassrooms = async (req, res) => {
     const role = req.user.role;
     let classes;
     if (role === "teacher") {
-      classes = await Classroom.find({ teacher: userId }).populate("students", "name email");
+      classes = await Classroom.find({ teacher: userId }).populate("students", "name email").populate("teacher", "name email");
     } else {
       classes = await Classroom.find({ students: userId }).populate("teacher", "name email");
     }

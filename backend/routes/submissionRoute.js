@@ -1,6 +1,8 @@
 import express from "express";
 import { submitAssignment, getSubmissionsByAssignment, getMySubmissions, gradeSubmission } from "../controllers/submissionController.js";
 import authMiddleware from "../middleware/auth.js";
+import { uploadZip } from "../middleware/uploadZip.js";
+import { uploadZipController } from "../controllers/uploadZipController.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs"; // Thêm import fs để tạo thư mục
@@ -29,7 +31,12 @@ console.log("Submission routes registered");
 // @desc   Submit an assignment
 // @route  POST /api/submissions/submit
 // @access Private (student)
-router.post("/submit", authMiddleware, upload.single("file"), submitAssignment);
+router.post("/submit", authMiddleware, upload.array("file"), submitAssignment);
+
+// @desc   Upload assignment via ZIP
+// @route  POST /api/submissions/upload-zip
+// @access Private (teacher)
+router.post("/upload-zip", authMiddleware, uploadZip.single("zipfile"), uploadZipController);
 
 // @desc   Get all submissions for an assignment
 // @route  GET /api/submissions/assignment/:assignmentId

@@ -11,9 +11,13 @@ const CreateAssignment = () => {
   const [subject, setSubject] = useState('Tiếng Việt')
   const [deadline, setDeadline] = useState('')
   const [answerKey, setAnswerKey] = useState('')
+  const [totalScore, setTotalScore] = useState('')
   const [attachments, setAttachments] = useState([])
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const finalAnswerKey = totalScore 
+  ? answerKey + `\nTổng điểm: ${totalScore}`
+  : answerKey
 
   useEffect(() => {
     const fetchClassInfo = async () => {
@@ -38,7 +42,7 @@ const CreateAssignment = () => {
         classId, 
         subject, // GỬI SUBJECT LÊN SERVER
         deadline, 
-        answerKey, 
+        answerKey : finalAnswerKey, 
         attachments 
       })
       alert('Giao bài tập thành công!')
@@ -60,7 +64,7 @@ const CreateAssignment = () => {
 
   return (
     <div className="min-h-screen bg-gray-10">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
         <div className="max-padd-container">
           <div className="flexBetween py-4">
             <Link to="/" className="flex items-center gap-2">
@@ -73,10 +77,10 @@ const CreateAssignment = () => {
         </div>
       </nav>
 
-      <div className="max-padd-container py-8">
+      <div className="max-padd-container py-8 pt-20">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
-            <Link to={`/class/${classId}`} className="flex items-center text-gray-50 hover:text-gray-90 mb-4 transition-colors">
+            <Link to={`/class/${classInfo?._id}`} className="flex items-center text-gray-50 hover:text-gray-90 mb-4 transition-colors">
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
@@ -110,7 +114,7 @@ const CreateAssignment = () => {
 
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">Mô tả bài tập</label>
-                <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả chi tiết bài tập..." rows="4" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-vertical" />
+                <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Mô tả chi tiết bài tập..." rows="4" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-vertical overflow-auto" />
               </div>
 
               <div>
@@ -120,7 +124,17 @@ const CreateAssignment = () => {
 
               <div>
                 <label htmlFor="answerKey" className="block text-sm font-medium text-gray-700 mb-2">Đáp án (tùy chọn)</label>
-                <input id="answerKey" type="text" value={answerKey} onChange={(e) => setAnswerKey(e.target.value)} placeholder="Nhập đáp án hoặc hướng dẫn chấm bài" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
+                <textarea id="answerKey" value={answerKey} onChange={(e) => setAnswerKey(e.target.value)} rows="4" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-vertical overflow-auto"
+                  placeholder={"Nhập đáp án chi tiết hoặc hướng dẫn chấm bài...\n" +
+                    "Câu 1: (điểm) Đáp án chi tiết\n" +
+                    "Câu 2: (điểm) Đáp án chi tiết\n" +
+                    "..." }
+                />
+              </div>
+
+              <div>
+                <label htmlFor="totalScore" className="block text-sm font-medium text-gray-700 mb-2">Tổng điểm</label>
+                <input id="totalScore" type="text" value={totalScore} onChange={(e) => setTotalScore(e.target.value)} placeholder="Nhập tổng điểm của toàn bài" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
               </div>
 
               <div>

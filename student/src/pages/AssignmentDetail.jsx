@@ -7,9 +7,10 @@ const AssignmentDetail = () => {
   const navigate = useNavigate()
   const [assignment, setAssignment] = useState(null)
   const [content, setContent] = useState('')
-  const [file, setFile] = useState(null)
+  const [files, setFiles] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
 
   useEffect(() => {
     const fetchAssignment = async () => {
@@ -36,7 +37,7 @@ const AssignmentDetail = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!content && !file) {
+    if (!content && !files) {
       alert('Vui lòng nhập nội dung hoặc chọn file!')
       return
     }
@@ -45,10 +46,13 @@ const AssignmentDetail = () => {
     const formData = new FormData()
     formData.append('assignmentId', assignmentId)
     formData.append('content', content || '')
-    if (file) formData.append('file', file)
+    if (files && files.length > 0) {
+      files.forEach((file) => {
+        formData.append("file", file);  // key phải trùng với backend (vd: files)
+      });
+    }
 
     try {
-      console.log('Submitting assignment:', { assignmentId, content, fileName: file?.name })
       const res = await axios.post('/api/submissions/submit', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
@@ -56,7 +60,8 @@ const AssignmentDetail = () => {
       if (res.data.success) {
         alert('Nộp bài thành công!')
         setContent('')
-        setFile(null)
+        setFiles(null)
+        setSubmitted(true)
         // Có thể chuyển hướng hoặc hiển thị thông báo thành công
       } else {
         throw new Error(res.data.message || 'Nộp bài thất bại')
@@ -203,32 +208,41 @@ const AssignmentDetail = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-50 mb-2">
-                    Hoặc tải lên file (PDF)
+                    Hoặc tải lên file (Ảnh hoặc PDF)
                   </label>
-                  <input 
-                    type="file" 
-                    accept=".pdf,application/pdf"
-                    onChange={(e) => setFile(e.target.files[0])} 
+
+                  <input
+                    type="file"
+                    accept="image/*,.pdf,application/pdf"
+                    multiple
+                    onChange={(e) => setFiles([...e.target.files])}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     disabled={submitting}
                   />
-                  {file && (
-                    <p className="text-sm text-green-600 mt-1">
-                      Đã chọn: {file.name}
-                    </p>
+
+                  {files && files.length > 0 && (
+                    <ul className="text-sm text-green-600 mt-2 space-y-1">
+                      {files.map((file, index) => (
+                        <li key={index}>📄 {file.name}</li>
+                      ))}
+                    </ul>
                   )}
                 </div>
 
                 <button 
-                  type="submit" 
-                  disabled={submitting || (isOverdue && !content && !file)}
+                  type="submit"
+                  disabled={submitted || submitting || (isOverdue && !content && !files)}
                   className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                    submitting || (isOverdue && !content && !file)
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                    submitted
+                      ? 'bg-green-500 text-white cursor-default'
+                      : submitting || (isOverdue && !content && files.length === 0)
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                   }`}
                 >
-                  {submitting ? (
+                  {submitted ? (
+                    'Đã nộp'
+                  ) : submitting ? (
                     <span className="flex items-center justify-center">
                       <div className="loading-spinner mr-2"></div>
                       Đang nộp...

@@ -7,6 +7,7 @@ import CreateClass from './pages/CreateClass'
 import ClassDetail from './pages/ClassDetail'
 import CreateAssignment from './pages/CreateAssignment'
 import Submissions from './pages/Submissions'
+import SubmissionDetail from './pages/SubmissionDetail'
 import Profile from './pages/Profile'
 import PrivateRoute from './components/PrivateRoute'
 
@@ -21,6 +22,7 @@ function App() {
         <Route path="/class/:classId" element={<PrivateRoute><ClassDetail /></PrivateRoute>} />
         <Route path="/class/:classId/create-assignment" element={<PrivateRoute><CreateAssignment /></PrivateRoute>} />
         <Route path="/assignment/:assignmentId/submissions" element={<PrivateRoute><Submissions /></PrivateRoute>} />
+        <Route path="/assignment/:assignmentId/submissions/:studentId" element={<PrivateRoute><SubmissionDetail /></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
       </Routes>
     </AuthProvider>

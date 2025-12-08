@@ -24,7 +24,7 @@ const CreateClass = () => {
   return (
     <div className="min-h-screen bg-gray-10">
       {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
         <div className="max-padd-container">
           <div className="flexBetween py-4">
             <Link to="/" className="flex items-center gap-2">
@@ -37,7 +37,7 @@ const CreateClass = () => {
         </div>
       </nav>
 
-      <div className="max-padd-container py-8">
+      <div className="max-padd-container py-8 pt-20">
         <div className="max-w-md mx-auto">
           <div className="mb-8">
             <Link to="/" className="flex items-center text-gray-50 hover:text-gray-90 mb-4 transition-colors">

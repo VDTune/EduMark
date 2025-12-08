@@ -2,14 +2,46 @@
 import Submission from "../models/submissionModel.js";
 import Assignment from "../models/assignmentModel.js";
 import Classroom from "../models/classroomModel.js";
-import User from "../models/userModel.js";
+import { spawn } from "child_process";
+import path from "path";
 
-// POST /api/submissions/submit  (student only)
+/**
+ * Chạy quy trình chấm điểm AI trong nền.
+ * @param {string} submissionId - ID của bài nộp cần chấm.
+ * @param {string[]} fileUrls - Mảng các đường dẫn tệp của bài nộp.
+ * @param {string} answerKey - Đáp án của bài tập.
+ */
+const runAiGradingInBackground = async (submissionId, fileUrls, answerKey) => {
+  console.log(`[AI Background] Bắt đầu chấm điểm cho submission: ${submissionId}`);
+  try {
+    // Gọi script Python và chờ kết quả (logic này được giữ nguyên từ trước)
+    const aiGradingResult = await executePythonScript(fileUrls, answerKey);
+
+    // Cập nhật bài nộp với kết quả từ AI
+    if (aiGradingResult && Object.keys(aiGradingResult).length > 0) {
+      const updatedSubmission = await Submission.findByIdAndUpdate(
+        submissionId,
+        {
+          aiScore: aiGradingResult?.score ?? null,
+          aiFeedback: aiGradingResult?.comment ?? aiGradingResult?.feedback ?? null,
+          aidetail: aiGradingResult?.details ?? [],
+        },
+        { new: true }
+      );
+      console.log(`[AI Background] Đã cập nhật điểm AI cho submission: ${submissionId}`, { score: updatedSubmission.aiScore });
+    } else {
+      console.log(`[AI Background] Không có kết quả từ AI cho submission: ${submissionId}`);
+    }
+  } catch (error) {
+    console.error(`[AI Background] Lỗi nghiêm trọng khi chấm điểm cho submission ${submissionId}:`, error);
+  }
+};
+
 const submitAssignment = async (req, res) => {
   try {
     const studentId = req.user.userId;
     const { assignmentId, content, fileUrl: fileUrlFromBody } = req.body;
-    const file = req.file;
+    const files = req.files;
 
     if (!assignmentId) {
       return res.status(400).json({ success: false, message: "Missing assignmentId" });
@@ -28,23 +60,118 @@ const submitAssignment = async (req, res) => {
     if (!classroom.students.map(s => s.toString()).includes(studentId)) {
       return res.status(403).json({ success: false, message: "You are not in this class" });
     }
+    const uploadedFileUrls = files.map(f => `./uploads/${f.filename}`);
+    const fileUrl = uploadedFileUrls.length > 0 ? uploadedFileUrls : (fileUrlFromBody ? [fileUrlFromBody] : []);
+    console.log('Files saved:', fileUrl.length > 0 ? { count: fileUrl.length, paths: fileUrl } : 'No file');
 
-    const fileUrl = file ? `/uploads/${file.filename}` : fileUrlFromBody;
-    console.log('File saved:', file ? { filename: file.filename, path: fileUrl } : 'No file');
-
+    // 1. Lưu bài nộp vào database trước mà không cần chờ AI
     const submission = new Submission({
       assignmentId,
       studentId,
       content,
-      fileUrl
+      fileUrl,
+      // Các trường AI sẽ được cập nhật sau
     });
-
     await submission.save();
+    console.log('Đã lưu bài nộp:', { submissionId: submission._id, studentId });
+
+    // 2. Gửi phản hồi thành công cho người dùng ngay lập tức
     res.status(201).json({ success: true, data: submission });
+
+    // 3. Sau khi đã phản hồi, kích hoạt tiến trình AI trong nền (fire-and-forget)
+    if (fileUrl.length > 0 && assignment.answerKey) {
+      // Không dùng await ở đây để nó chạy ngầm
+      runAiGradingInBackground(submission._id, fileUrl, assignment.answerKey);
+    }
+
   } catch (error) {
     console.error("submitAssignment error:", error.message, error.stack);
     res.status(500).json({ success: false, message: "Server error" });
   }
+};
+
+
+/**
+ * @param {string[]} fileUrls - Mảng các đường dẫn tệp.
+ * @param {string} answerKey - Đáp án.
+ * @returns {Promise<object>} - Promise giải quyết với kết quả JSON từ script.
+ */
+const executePythonScript = (fileUrls, answerKey) => {
+  return new Promise((resolve) => {
+    const PY_TIMEOUT_MS = 600000; // 10 phút
+    const pythonScript = path.join(process.cwd(), "ocr_llm", "main_processor.py");
+    const args = [pythonScript, fileUrls.join(","), answerKey || ""];
+
+    const pythonProcess = spawn("python", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONLEGACYWINDOWSSTDIO: 'utf-8'
+      }
+    });
+
+    let stdoutData = "";
+    let stderrData = "";
+    let finished = false;
+
+    const timeout = setTimeout(() => {
+      if (!finished) {
+        console.error("Python process timeout, killing...");
+        try { pythonProcess.kill("SIGKILL"); } catch (e) { /* ignore */ }
+        resolve({}); // Giải quyết với object rỗng khi timeout
+      }
+    }, PY_TIMEOUT_MS);
+
+    pythonProcess.stdout.on("data", (chunk) => {
+      stdoutData += chunk.toString();
+    });
+
+    pythonProcess.stderr.on("data", (chunk) => {
+      const s = chunk.toString();
+      stderrData += s;
+      console.error(`[Python stderr] ${s}`);
+    });
+
+    pythonProcess.on("close", (code) => {
+      finished = true;
+      clearTimeout(timeout);
+      console.log(`Python process finish with code: ${code}`);
+
+      if (!stdoutData) {
+        console.warn("Python không trả về stdout.");
+        return resolve({});
+      }
+
+      console.log("🔍 RAW STDOUT TỪ PYTHON:", stdoutData);
+
+      try {
+        const startMarker = "<<<JSON_START>>>";
+        const endMarker = "<<<JSON_END>>>";
+        const startIndex = stdoutData.indexOf(startMarker);
+        const endIndex = stdoutData.indexOf(endMarker);
+
+        if (startIndex === -1 || endIndex === -1) {
+          console.error("❌ KHÔNG TÌM THẤY MARKER JSON!");
+          // Fallback: thử tìm một đối tượng JSON bất kỳ trong output
+          try {
+            const jsonMatch = stdoutData.match(/\{[\s\S]*\}/);
+            if (jsonMatch) return resolve(JSON.parse(jsonMatch[0]));
+          } catch (e) {}
+          return resolve({});
+        }
+
+        const jsonString = stdoutData.slice(startIndex + startMarker.length, endIndex).trim();
+        console.log("✅ JSON STRING ĐÃ CẮT:", jsonString);
+        const parsed = JSON.parse(jsonString);
+        return resolve(parsed);
+
+      } catch (parseErr) {
+        console.error("❌ LỖI PARSE JSON:", parseErr);
+        return resolve({});
+      }
+    });
+  });
 };
 
 // GET /api/submissions/assignment/:assignmentId  (teacher only: own class)
@@ -76,7 +203,7 @@ const getMySubmissions = async (req, res) => {
       .populate("assignmentId", "title classId")
       .populate("gradedBy", "name") // THÊM populate cho giáo viên chấm
       .sort({ submittedAt: -1 });
-    
+
     console.log('Found submissions:', subs.length); // Debug
     res.json({ success: true, data: subs });
   } catch (error) {
@@ -114,4 +241,4 @@ const gradeSubmission = async (req, res) => {
 };
 
 
-export { submitAssignment, getSubmissionsByAssignment, getMySubmissions, gradeSubmission };
+export { submitAssignment, getSubmissionsByAssignment, getMySubmissions, gradeSubmission, runAiGradingInBackground };

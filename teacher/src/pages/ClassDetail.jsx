@@ -42,17 +42,38 @@ const ClassDetail = () => {
 
   const handleAddStudent = async (e) => {
     e.preventDefault()
+    const emails = studentEmail.split(/[\n, ]+/).filter(email => email.trim() !== '')
+    if (emails.length === 0) {
+      alert('Vui lòng nhập email học sinh.')
+      return
+    }
+
     try {
       setAddingStudent(true)
-      await axios.post(`/api/classrooms/${classId}/add-student`, { studentEmail })
-      alert('Thêm học sinh thành công!')
+      const results = await Promise.allSettled(
+        emails.map(email => axios.post(`/api/classrooms/${classId}/add-student`, { studentEmail: email.trim() }))
+      )
+
+      const successfulAdds = results.filter(r => r.status === 'fulfilled').length
+      const failedAdds = results.filter(r => r.status === 'rejected')
+
+      let alertMessage = ''
+      if (successfulAdds > 0) {
+        alertMessage += `Thêm thành công ${successfulAdds} học sinh.\n`
+      }
+      if (failedAdds.length > 0) {
+        const failedEmails = emails.filter((_, index) => results[index].status === 'rejected')
+        alertMessage += `Thất bại khi thêm ${failedAdds.length} học sinh: ${failedEmails.join(', ')}.`
+      }
+      alert(alertMessage.trim())
+
       setStudentEmail('')
       
       const classRes = await axios.get('/api/classrooms/my')
       const cls = classRes.data.data.find(c => c._id === classId)
       setStudents(cls?.students || [])
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi thêm học sinh')
+      alert('Có lỗi xảy ra trong quá trình thêm học sinh.')
     } finally {
       setAddingStudent(false)
     }
@@ -74,7 +95,7 @@ const ClassDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-10">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
         <div className="max-padd-container">
           <div className="flexBetween py-4">
             <Link to="/" className="flex items-center gap-2">
@@ -87,7 +108,7 @@ const ClassDetail = () => {
         </div>
       </nav>
 
-      <div className="max-padd-container py-8">
+      <div className="max-padd-container py-8 pt-20">
         <div className="mb-8">
           <Link to="/" className="flex items-center text-gray-50 hover:text-gray-90 mb-4 transition-colors">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,7 +218,7 @@ const ClassDetail = () => {
               <h3 className="text-lg font-semibold text-gray-90 mb-4">Thêm học sinh</h3>
               <form onSubmit={handleAddStudent} className="space-y-4">
                 <div>
-                  <input type="email" value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} placeholder="Email học sinh" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" required />
+                  <textarea value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} placeholder="Nhập email học sinh, mỗi email một dòng..." rows="4" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" required />
                 </div>
                 <button type="submit" disabled={addingStudent} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50">
                   {addingStudent ? 'Đang thêm...' : 'Thêm học sinh'}
@@ -213,7 +234,7 @@ const ClassDetail = () => {
                 </span>
               </div>
               
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                 {students.length === 0 ? (
                   <p className="text-gray-50 text-center py-4">Chưa có học sinh nào</p>
                 ) : (
