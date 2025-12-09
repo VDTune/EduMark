@@ -7,12 +7,9 @@ from paddleocr import PaddleOCR
 # from backend.ocr_llm.encoding_fix import force_utf8
 # force_utf8()
 
-# 1. Cấu hình môi trường
-# Tắt log rác của Paddle và sửa lỗi thư viện trên Windows
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-# --- Singleton Pattern: Quản lý Model ---
 _ocr_model = None                            
 
 # def get_ocr_model():
@@ -28,7 +25,71 @@ _ocr_model = None
 #         _ocr_model = PaddleOCR(use_angle_cls=True, lang='en', device='cpu')
 #         print("✅ PaddleOCR READY.")
 #     return _ocr_model
+# def extract_text_with_coords(image_path):
+#     """
+#     Phiên bản nâng cấp: Trả về Text kèm Tọa độ (Box).
+#     Output: List of dicts [{'text': 'Câu 1', 'box': [y_min, y_max, x_min, x_max]}, ...]
+#     """
+#     print(f"\n--- ⚙️ OCR SCANNING: {os.path.basename(image_path)} ---")
 
+#     if not image_path or not os.path.exists(image_path):
+#         return []
+
+#     try:
+#         # Load PaddleOCR (English/Vietnamese support)
+#         ocr = PaddleOCR(use_angle_cls=True, lang='en', device='cpu', show_log=False)
+
+#         img_array = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
+#         if img_array is None:
+#             return []
+
+#         # Resize nhẹ nếu ảnh quá lớn để tăng tốc
+#         height, width, _ = img_array.shape
+#         if width > 2000:
+#             scale = 2000 / width
+#             img_array = cv2.resize(img_array, None, fx=scale, fy=scale)
+#             # Cập nhật lại kích thước để tính toán toạ độ chuẩn
+#             height, width, _ = img_array.shape
+
+#         # Chạy OCR
+#         result = ocr.ocr(img_array, cls=True)
+        
+#         structured_data = []
+
+#         if result is None or len(result) == 0 or result[0] is None:
+#             return []
+
+#         for line in result[0]:
+#             # line format: [ [[x1,y1],[x2,y2],[x3,y3],[x4,y4]], (text, confidence) ]
+#             coords = line[0]
+#             text_info = line[1]
+#             text = text_info[0]
+            
+#             # Tính toán Bounding Box (y_min, y_max, x_min, x_max)
+#             ys = [pt[1] for pt in coords]
+#             xs = [pt[0] for pt in coords]
+            
+#             box = {
+#                 'y_min': min(ys),
+#                 'y_max': max(ys),
+#                 'x_min': min(xs),
+#                 'x_max': max(xs),
+#                 'center_y': (min(ys) + max(ys)) / 2,
+#                 'height': max(ys) - min(ys),
+#                 'width': img_array.shape[1] # Lưu width ảnh để tính tỷ lệ
+#             }
+            
+#             structured_data.append({
+#                 'text': text,
+#                 'box': box
+#             })
+
+#         return structured_data
+
+#     except Exception as e:
+#         print(f"❌ OCR Error: {e}")
+#         return []
+    
 def extract_text_from_image(image_path):
     """
     Hàm xử lý chính: Đọc ảnh -> OCR -> Trả về văn bản.
@@ -52,7 +113,7 @@ def extract_text_from_image(image_path):
             print("🛑 Error: OpenCV can not read image file (File error or corrupted).")
             return ""
         
-        TARGET_WIDTH = 1500
+        TARGET_WIDTH = 2000
         height, width, _ = img_array.shape
         
         # Chỉ resize nếu chiều rộng không nằm trong khoảng tối ưu
@@ -68,8 +129,7 @@ def extract_text_from_image(image_path):
         # 4. Chạy OCR
         result = ocr.ocr(img_array)
 
-        final_lines = []
-        # MIN_CONFIDENCE = 0.6  # Lọc rác
+        final_structure = []
         
         print("--- RESULT DETAIL ---")
         
@@ -83,30 +143,48 @@ def extract_text_from_image(image_path):
         if isinstance(data, list):
             for line_info in data:
                 if isinstance(line_info, list) and len(line_info) > 1:
+                    coords = line_info[0]
                     text_tuple = line_info[1] # (text, score)
                     text = text_tuple[0]
                     score = text_tuple[1]
                     
                     print(f"Text: {text} | Reliability: {score:.2f}")
-                    final_lines.append(text)
+                    final_structure.append(text)
+
+                    ys = [pt[1] for pt in coords]
+            
+                    box = {
+                        'y_center': (min(ys) + max(ys)) / 2,
+                        'height': max(ys) - min(ys),
+                        'img_width': width # Quan trọng để tính tỷ lệ X
+                    }
+                    
+                    final_structure.append({
+                        'text': text,
+                        'box': box,
+                        'score': score
+                    })
 
         # TRƯỜNG HỢP B: Kết quả dạng Dict (Dự phòng cho các phiên bản khác)
         elif isinstance(data, dict):
             texts = data.get('rec_texts', [])
             scores = data.get('rec_scores', [])
+        
             
             if texts and scores:
                 for t, s in zip(texts, scores):
                     print(f"Text: {t} | Reliability: {s:.2f}")
-                    final_lines.append(t)
+                    final_structure.append(t)
             else:
                  print("⚠️ Dictionary data returned empty.")
 
         print("-------------------------")
         
         # Ghép lại thành 1 đoạn văn bản để trả về cho LLM
-        full_text = "\n".join(final_lines)
-        return full_text
+        # full_text = "\n".join(final_structure).strip()
+        # return full_text
+        print(f"✅ OCR Success: {os.path.basename(image_path)} ({len(final_structure)} lines)")
+        return final_structure
 
     except Exception as e:
         print(f"❌ Exception error when running OCR: {e}")

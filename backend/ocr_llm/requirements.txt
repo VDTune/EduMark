@@ -4,3 +4,5 @@ google-generativeai
 numpy
 opencv-python
 python-dotenv
+ultralytics
+pillow

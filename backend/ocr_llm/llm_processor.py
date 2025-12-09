@@ -1,14 +1,16 @@
 # d:\TIEN\Nam5\DATN\EduMark\backend\ocr_llm\llm_processor.py
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import os
+import re
 import json
+import PIL.Image
 from dotenv import load_dotenv
 from prompt import prompt_template
+from concurrent.futures import ThreadPoolExecutor, as_completed
 # from encoding_fix_backup import force_utf8
 # force_utf8()
 
-# Tải các biến môi trường từ file .env ở thư mục backend
-# Điều này giúp quản lý API key một cách an toàn
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
@@ -39,18 +41,34 @@ def get_gemini_model():
     if _gemini_model is None:
         _configure_gemini()
     return _gemini_model
+def clean_json_string(text):
+    """
+    Hàm làm sạch chuỗi JSON trả về từ LLM.
+    Loại bỏ các ký tự markdown như ```json ... ```
+    """
+    if not text:
+        return ""
+    
+    # 1. Loại bỏ markdown code block
+    text = re.sub(r'^```json\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^```\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r'```$', '', text, flags=re.MULTILINE)
+    
+    # 2. Trim khoảng trắng
+    text = text.strip()
+    return text
 
 # --- Main Grading Function ---
-def grade_submission_with_llm(recognized_text: str, rubric: str):
+def grade_submission_with_llm(image_paths: list, rubric: str, final_context_text: str):
     
     print("\n--- 4. START GRADING WITH LLM ---")
     
     # Trường hợp OCR không đọc được gì
-    if not recognized_text or not recognized_text.strip():
+    if not image_paths:
         print("⚠️ Warning: Empty OCR text, cannot be graded.")
         return {
             "score": 0,
-            "comment": "Không thể chấm điểm do không nhận dạng được văn bản từ ảnh bài làm.",
+            "comment": "Không tìm thấy bài làm để chấm",
             "feasibility": False,
             "details": {}
         }
@@ -59,22 +77,55 @@ def grade_submission_with_llm(recognized_text: str, rubric: str):
         # Lấy model Gemini (sẽ được khởi tạo nếu chưa có)
         model = get_gemini_model()
 
+        image_parts = []
+        for path in image_paths:
+            try:
+                if os.path.exists(path):
+                    img = PIL.Image.open(path)
+                    image_parts.append(img)
+                    print(f"✅ Loaded image for Vision: {os.path.basename(path)}")
+                else:
+                    print(f"⚠️ Image path not found: {path}")
+            except Exception as e:
+                print(f"⚠️ Error loading image {path}: {e}")
+
+        if not image_parts:
+            return {
+                "score": 0,
+                "comment": "Lỗi: Không thể đọc được file ảnh nào.",
+                "feasibility": False,
+                "details": {}
+            }
 
         # Điền thông tin vào prompt template
         final_prompt = prompt_template.format(
             rubric=rubric,
-            recognized_text=recognized_text
+            recognized_text=final_context_text
         )
+
+        # 4. Gửi Request Đa phương thức (Multimodal: Text Prompt + Images)
+        # Gemini nhận input là một list [Prompt_Text, Image1, Image2, ...]
+        input_content = [final_prompt] + image_parts
+
+        print("Sending VISION request (Text + Images) to Google API...")
+
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
 
         # Cấu hình để yêu cầu LLM trả về đúng định dạng JSON
         generation_config = genai.GenerationConfig(
-            response_mime_type="application/json"
+            response_mime_type="application/json",
+            temperature=0.2 # Giảm sáng tạo để kết quả ổn định
         )
 
         print("Sending score request to Google API...")
         # Gọi API và lấy kết quả
         response = model.generate_content(
-            [final_prompt],
+            input_content,
             generation_config=generation_config
         )
 
@@ -107,7 +158,8 @@ def grade_submission_with_llm(recognized_text: str, rubric: str):
 
             print("✅Get JSON response from API.")
             # Parse chuỗi JSON thành dictionary của Python
-            grading_result = json.loads(response_text)
+            cleaned_json = clean_json_string(response_text)
+            grading_result = json.loads(cleaned_json)
             print("✅ JSON parsed successfully.")
             return grading_result
         except Exception as e:
@@ -131,17 +183,12 @@ def grade_submission_with_llm(recognized_text: str, rubric: str):
             "feasibility": False,
             "details": {}
         }
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def grade_multiple_submissions_parallel(submissions, max_workers=5):
     """
     Chấm nhiều bài song song bằng Gemini (ThreadPoolExecutor)
-
-    submissions: List tuple (recognized_text, rubric)
+    submissions: List tuple (image_paths, rubric, final_context_text)
     max_workers: số luồng xử lý song song
-
-    Returns:
-        List kết quả chấm điểm (giữ đúng thứ tự input)
     """
 
     results = [None] * len(submissions)
@@ -150,8 +197,8 @@ def grade_multiple_submissions_parallel(submissions, max_workers=5):
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_index = {
-            executor.submit(grade_submission_with_llm, text, rubric): i
-            for i, (text, rubric) in enumerate(submissions)
+            executor.submit(grade_submission_with_llm, imgs, rub, txt): i
+            for i, (imgs, rub, txt) in enumerate(submissions)
         }
 
         for future in as_completed(future_to_index):
@@ -163,7 +210,7 @@ def grade_multiple_submissions_parallel(submissions, max_workers=5):
                 print(f"❌ Error grading submission #{idx+1}: {e}")
                 results[idx] = {
                     "score": 0,
-                    "comment": "Lỗi khi chấm bài bằng AI",
+                    "comment": "Lỗi luồng xử lý song song.",
                     "feasibility": False,
                     "details": {}
                 }
