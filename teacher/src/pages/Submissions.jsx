@@ -94,7 +94,7 @@ const Submissions = () => {
       [`Giáo viên: ${teacherName}`],
       [`Tổng số học sinh: ${allStudents.length}`], // Đếm tổng học sinh
       [""],
-      ["STT", "Họ và tên", "Email/Mã HS", "Lớp", `Điểm ${assignmentTitle}`, "Trạng thái"]
+      ["STT", "Họ và tên", "Email/Mã HS", "Lớp", `Điểm ${assignmentTitle}`, "Trạng thái", "Điểm AI"]
     ];
 
     // Tạo Map (từ điển) cho các bài nộp để tra cứu nhanh hơn
@@ -113,6 +113,7 @@ const Submissions = () => {
 
       let grade = 0;       // Mặc định là 0 điểm
       let status = "Chưa nộp";
+      let aiscore = 0;
 
       if (sub) {
         // Nếu ĐÃ NỘP bài
@@ -121,6 +122,9 @@ const Submissions = () => {
             grade = sub.grade; // Lấy điểm thật nếu đã chấm
         } else {
             grade = "Chưa chấm"; // Đã nộp nhưng giáo viên chưa chấm
+        }
+        if (sub.aiScore !== null && sub.aiScore !== undefined) {
+            aiscore = sub.aiScore;
         }
       } 
       // Nếu sub === undefined thì giữ nguyên grade = 0, status = "Chưa nộp"
@@ -131,7 +135,8 @@ const Submissions = () => {
         student.email || student.studentId, // Thêm email hoặc mã HS để dễ nhận diện
         className,
         grade, // Điểm (0 hoặc điểm thật)
-        status // Trạng thái để giáo viên dễ nhìn
+        status, // Trạng thái để giáo viên dễ nhìn
+        aiscore
       ]);
     });
 
@@ -140,8 +145,8 @@ const Submissions = () => {
     
     // Merge Header
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }, 
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, 
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
     ];
     
     // Thêm style alignment và font-weight cho header
@@ -153,7 +158,7 @@ const Submissions = () => {
     if (ws['A2']) ws['A2'].s = { ...headerStyle, font: { bold: false, sz: 12 } };
 
     // Chỉnh độ rộng cột
-    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }];
+    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10}];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "BangDiemChiTiet");
