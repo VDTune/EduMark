@@ -19,7 +19,14 @@ app.use(express.urlencoded({ extended: true }));
 
 // Middleware log request
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  // Danh sách các từ khóa trong URL muốn bỏ qua không log
+  const ignorePaths = ['/api/submissions', '/api/assignments', '/api/classrooms'];
+  // Kiểm tra xem URL hiện tại có chứa từ khóa nào trong danh sách trên không
+  const isIgnored = ignorePaths.some(path => req.url.includes(path));
+  // Nếu KHÔNG nằm trong danh sách bỏ qua thì mới in log
+  if (!isIgnored) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  }
   next();
 });
 
@@ -31,7 +38,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 app.use("/uploads", express.static(uploadDir, {
   setHeaders: (res) => {
-    console.log('Serving file from:', uploadDir);
+    // console.log('Serving file from:', uploadDir);
     res.set('Content-Disposition', 'inline');
   }
 }));

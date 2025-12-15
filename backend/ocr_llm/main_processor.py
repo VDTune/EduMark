@@ -49,12 +49,12 @@ def main():
             # --- Defensive Programming: Đảm bảo page_ocr_data có đúng định dạng ---
             # Chuyển đổi các item là chuỗi JSON thành dictionary để tránh lỗi "string indices must be integers"
             processed_page_ocr_data = []
-            for item in page_ocr_data:
-                # Chỉ parse nếu item là một chuỗi JSON không rỗng
-                if isinstance(item, str) and item.strip():
-                    processed_page_ocr_data.append(json.loads(item))
-                elif isinstance(item, dict): # Chỉ thêm nếu nó đã là một dict
-                    processed_page_ocr_data.append(item)
+            if isinstance(page_ocr_data, list):
+                for item in page_ocr_data:
+                    # ocr_processor trả về mixed list [str, dict, str, dict...].
+                    # Ta chỉ cần lấy dict (chứa text, box, score) và bỏ qua str (raw text) để tránh lỗi json.loads
+                    if isinstance(item, dict):
+                        processed_page_ocr_data.append(item)
             
             # --- XỬ LÝ 1: Tạo Context Text cho LLM ---
             # Chỉ lấy trường 'text' để ghép thành đoạn văn
