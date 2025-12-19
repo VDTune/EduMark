@@ -10,6 +10,9 @@ import Submissions from './pages/Submissions'
 import SubmissionDetail from './pages/SubmissionDetail'
 import Profile from './pages/Profile'
 import PrivateRoute from './components/PrivateRoute'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
+import VerifyEmail from './pages/VerifyEmail'
 
 function App() {
   return (
@@ -17,6 +20,10 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/verify-email/:token" element={<VerifyEmail />} />
+
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/create-class" element={<PrivateRoute><CreateClass /></PrivateRoute>} />
         <Route path="/class/:classId" element={<PrivateRoute><ClassDetail /></PrivateRoute>} />
@@ -28,5 +35,4 @@ function App() {
     </AuthProvider>
   )
 }
-
 export default App
