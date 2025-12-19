@@ -15,7 +15,9 @@ const assignmentSchema = new mongoose.Schema({
     required: true,
     enum: ['Tiếng Việt', 'Toán', 'Tự nhiên và Xã hội', 'Tiếng Anh', 'Khoa học', 'Khác'],
     default: 'Khác'
-  }
+  },
+  isSubmitRequired: { type: Boolean, default: true },
+  allowLate: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const Assignment = mongoose.models.Assignment || mongoose.model("Assignment", assignmentSchema);

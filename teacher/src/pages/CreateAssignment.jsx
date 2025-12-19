@@ -7,13 +7,15 @@ const CreateAssignment = () => {
   const [classInfo, setClassInfo] = useState(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  // THÊM STATE SUBJECT
   const [subject, setSubject] = useState('Tiếng Việt')
   const [deadline, setDeadline] = useState('')
   const [answerKey, setAnswerKey] = useState('')
   const [totalScore, setTotalScore] = useState('')
   const [attachments, setAttachments] = useState([])
   const [loading, setLoading] = useState(false)
+  const [isSubmitRequired, setIsSubmitRequired] = useState(true)
+  const [allowLate, setAllowLate] = useState(false)
+
   const navigate = useNavigate()
   const finalAnswerKey = totalScore 
   ? answerKey + `\nTổng điểm: ${totalScore}`
@@ -40,10 +42,12 @@ const CreateAssignment = () => {
         title, 
         description, 
         classId, 
-        subject, // GỬI SUBJECT LÊN SERVER
+        subject, 
         deadline, 
         answerKey : finalAnswerKey, 
-        attachments 
+        attachments, 
+        isSubmitRequired,
+        allowLate: isSubmitRequired && !!deadline && allowLate
       })
       alert('Giao bài tập thành công!')
       navigate(`/class/${classId}`)
@@ -124,10 +128,15 @@ const CreateAssignment = () => {
 
               <div>
                 <label htmlFor="answerKey" className="block text-sm font-medium text-gray-700 mb-2">Đáp án (tùy chọn)</label>
-                <textarea id="answerKey" value={answerKey} onChange={(e) => setAnswerKey(e.target.value)} rows="4" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-vertical overflow-auto"
+                <textarea id="answerKey" value={answerKey} onChange={(e) => setAnswerKey(e.target.value)} rows="6" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-vertical overflow-auto"
                   placeholder={"Nhập đáp án chi tiết hoặc hướng dẫn chấm bài...\n" +
-                    "Câu 1: (điểm) Đáp án chi tiết\n" +
-                    "Câu 2: (điểm) Đáp án chi tiết\n" +
+                    "Phần I: Trắc nghiệm (điểm)\n" +
+                    "Câu 1: Đáp án\n" +
+                    "Câu 2: Đáp án\n" +
+                    "...\n" +
+                    "Phần II: Tự luận (điểm)\n" +
+                    "Câu 1: (điểm) Hướng dẫn đáp án chi tiết\n" +
+                    "Câu 2: (điểm) Hướng dẫn đáp án chi tiết\n" +
                     "..." }
                 />
               </div>
@@ -136,6 +145,54 @@ const CreateAssignment = () => {
                 <label htmlFor="totalScore" className="block text-sm font-medium text-gray-700 mb-2">Tổng điểm</label>
                 <input id="totalScore" type="text" value={totalScore} onChange={(e) => setTotalScore(e.target.value)} placeholder="Nhập tổng điểm của toàn bài" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
               </div>
+
+              <div className="bg-50 p-4 rounded-lg border border-gray-200 space-y-4">
+                <label className="block text-sm font-medium text-gray-700">Cấu hình nộp bài</label>
+                
+                {/* Radio: Yêu cầu học sinh nộp bài */}
+                <div className="flex flex-col gap-2">
+                    <span className="text-sm text-gray-600">Yêu cầu học sinh nộp bài trực tuyến:</span>
+                    <div className="flex gap-6">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                                type="radio" 
+                                name="submitRequired"
+                                checked={isSubmitRequired === true} 
+                                onChange={() => setIsSubmitRequired(true)}
+                                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">Có</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                                type="radio" 
+                                name="submitRequired"
+                                checked={isSubmitRequired === false} 
+                                onChange={() => setIsSubmitRequired(false)}
+                                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">Không</span>
+                        </label>
+                    </div>
+                </div>
+
+                {/* Checkbox: Cho phép nộp muộn (Chỉ hiện khi Có yêu cầu nộp) */}
+                {isSubmitRequired && (
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+                        <input 
+                            id="allowLate" 
+                            type="checkbox" 
+                            checked={allowLate} 
+                            onChange={(e) => setAllowLate(e.target.checked)}
+                            disabled={!deadline}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50" 
+                        />
+                        <label htmlFor="allowLate" className={`text-sm text-gray-700 select-none cursor-pointer ${!deadline ? 'opacity-50' : ''}`}>
+                            Cho phép nộp bài sau khi hết hạn {!deadline && '(Cần chọn hạn nộp)'}
+                        </label>
+                    </div>
+                )}
+              </div>         
 
               <div>
                 <div className="flexBetween mb-2">

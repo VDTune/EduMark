@@ -190,34 +190,36 @@ const ClassDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-10">
-      {/* Header */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
         <div className="max-padd-container">
           <div className="flexBetween py-4">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-50 hover:text-gray-90 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Quay lại
-              </button>
-              <div className="w-px h-6 bg-gray-200"></div>
-              <div>
-                <h1 className="medium-18 text-gray-90">{classInfo?.name}</h1>
-                <p className="regular-14 text-gray-50">
-                  Giáo viên: {classInfo?.teacher?.name || 'Chưa có thông tin'}
-                </p>
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flexCenter">
+                <span className="text-white font-bold text-sm">A</span>
               </div>
+              <span className="bold-20 text-gray-90">Azota Classroom</span>
+            </Link>
+            <div className="text-right">
+              <h1 className="medium-18 text-gray-90">{classInfo?.name}</h1>
+              <p className="regular-14 text-gray-50">
+                Giáo viên: {classInfo?.teacher?.name || 'Chưa có thông tin'}
+              </p>
             </div>
           </div>
         </div>
       </nav>
 
       {/* Content */}
-      <div className="max-padd-container py-8">
+      <div className="max-padd-container py-8 pt-20">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-gray-50 hover:text-gray-90 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Quay lại
+        </button>
         <div className="flexBetween mb-8">
           <div>
             <h1 className="h1 text-gray-90 mb-2">Bài tập trong lớp</h1>
@@ -245,8 +247,11 @@ const ClassDetail = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {assignments.map(asg => {
+            {assignments.filter(asg => asg.isSubmitRequired).map(asg => {
+              const deadlineDate = asg.deadline ? new Date(asg.deadline) : null;
               const isOverdue = asg.deadline && new Date(asg.deadline) < new Date()
+              // Nếu quá hạn VÀ không cho nộp muộn (allowLate = false) => Bị khóa
+              const isLocked = isOverdue && !asg.allowLate;
               const isDueSoon = asg.deadline && new Date(asg.deadline) > new Date() && new Date(asg.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000)
               const submissionStatus = getSubmissionStatus(asg._id)
               const submission = submissions[asg._id]
@@ -285,7 +290,8 @@ const ClassDetail = () => {
 
                         {/* Trạng thái deadline */}
                         {asg.deadline && (
-                          <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                          <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${
+                            isLocked ? 'bg-gray-100 text-gray-600 border-gray-300' :
                             isOverdue ? 'bg-red-50 text-red-700 border border-red-200' : 
                             isDueSoon ? 'bg-orange-50 text-orange-700 border border-orange-200' : 
                             'bg-green-50 text-green-700 border border-green-200'
@@ -293,7 +299,7 @@ const ClassDetail = () => {
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            {isOverdue ? 'Quá hạn' : isDueSoon ? 'Sắp đến hạn' : 'Còn thời gian'}
+                            {isLocked ? 'Đã khóa' : isOverdue ? 'Quá hạn (Được nộp muộn)' : isDueSoon ? 'Sắp đến hạn' : 'Còn thời gian'}
                           </div>
                         )}
                       </div>

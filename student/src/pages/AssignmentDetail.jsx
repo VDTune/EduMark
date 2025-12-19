@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef} from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 
 const AssignmentDetail = () => {
@@ -11,6 +11,8 @@ const AssignmentDetail = () => {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     const fetchAssignment = async () => {
@@ -25,19 +27,19 @@ const AssignmentDetail = () => {
         }
       } catch (err) {
         console.error('Error fetching assignment:', err)
-        alert('Không thể tải thông tin bài tập: ' + (err.response?.data?.message || err.message))
-        navigate(-1)
+        // alert('Không thể tải thông tin bài tập: ' + (err.response?.data?.message || err.message))
+        // navigate(-1)
       } finally {
         setLoading(false)
       }
     }
 
     fetchAssignment()
-  }, [assignmentId, navigate])
+  }, [assignmentId])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!content && !files) {
+    if (!content.trim() && files.length === 0) {
       alert('Vui lòng nhập nội dung hoặc chọn file!')
       return
     }
@@ -60,7 +62,10 @@ const AssignmentDetail = () => {
       if (res.data.success) {
         alert('Nộp bài thành công!')
         setContent('')
-        setFiles(null)
+        setFiles([])
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '' // Reset text trên input file
+        }
         setSubmitted(true)
         // Có thể chuyển hướng hoặc hiển thị thông báo thành công
       } else {
@@ -107,30 +112,34 @@ const AssignmentDetail = () => {
       <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-padd-container">
           <div className="flexBetween py-4">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-50 hover:text-gray-90 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Quay lại
-              </button>
-              <div className="w-px h-6 bg-gray-200"></div>
-              <div>
-                <h1 className="medium-18 text-gray-90">{assignment.title}</h1>
-                <p className="regular-14 text-gray-50">
-                  {assignment.teacherId?.name && `Giáo viên: ${assignment.teacherId.name}`}
-                  {assignment.classId?.name && ` • Lớp: ${assignment.classId.name}`}
-                </p>
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flexCenter">
+                <span className="text-white font-bold text-sm">A</span>
               </div>
+              <span className="bold-20 text-gray-90">Azota Classroom</span>
+            </Link>              
+            <div className="text-right"></div>
+            <div>
+              <h1 className="medium-18 text-gray-90">{assignment?.title}</h1>
+              <p className="regular-14 text-gray-50">
+                {assignment?.teacherId?.name && `Giáo viên: ${assignment.teacherId.name}`}
+                {assignment?.classId?.name && ` • Lớp: ${assignment.classId.name}`}
+              </p>
             </div>
           </div>
         </div>
       </nav>
 
       <div className="max-padd-container py-8">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-gray-50 hover:text-gray-90 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Quay lại
+        </button>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Thông tin bài tập */}
           <div className="lg:col-span-2">
@@ -188,7 +197,8 @@ const AssignmentDetail = () => {
           </div>
 
           {/* Form nộp bài */}
-          <div className="lg:col-span-1">
+          {assignment.isSubmitRequired && (
+            <div className="lg:col-span-1">
             <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 sticky top-6">
               <h3 className="text-lg font-bold text-gray-90 mb-4">Nộp bài tập</h3>
               
@@ -202,7 +212,7 @@ const AssignmentDetail = () => {
                     onChange={(e) => setContent(e.target.value)} 
                     placeholder="Nhập nội dung bài làm của bạn..."
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors h-32 resize-vertical"
-                    disabled={submitting}
+                    disabled={submitting || submitted}
                   />
                 </div>
                 
@@ -212,12 +222,13 @@ const AssignmentDetail = () => {
                   </label>
 
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*,.pdf,application/pdf"
                     multiple
                     onChange={(e) => setFiles([...e.target.files])}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    disabled={submitting}
+                    disabled={submitting || submitted || (isOverdue && !assignment.allowLate)}
                   />
 
                   {files && files.length > 0 && (
@@ -231,11 +242,11 @@ const AssignmentDetail = () => {
 
                 <button 
                   type="submit"
-                  disabled={submitted || submitting || (isOverdue && !content && !files)}
+                  disabled={submitted || submitting || (isOverdue && !assignment.allowLate)}
                   className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                     submitted
                       ? 'bg-green-500 text-white cursor-default'
-                      : submitting || (isOverdue && !content && files.length === 0)
+                      : submitting || (isOverdue && !assignment.allowLate)
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                   }`}
@@ -247,21 +258,26 @@ const AssignmentDetail = () => {
                       <div className="loading-spinner mr-2"></div>
                       Đang nộp...
                     </span>
-                  ) : isOverdue ? (
+                  ) : isOverdue && assignment.allowLate ? (
                     'Nộp muộn'
+                  ) : isOverdue && !assignment.allowLate ? (
+                    'Đã hết hạn'
                   ) : (
                     'Nộp bài'
                   )}
                 </button>
 
                 {isOverdue && (
-                  <p className="text-orange-600 text-sm text-center">
-                    Bài tập đã quá hạn. Bạn vẫn có thể nộp bài muộn.
+                  <p className={`text-sm text-center ${assignment.allowLate ? 'text-orange-600' : 'text-red-600'}`}>
+                    {assignment.allowLate 
+                      ? 'Bài tập đã quá hạn. Bạn vẫn có thể nộp bài muộn.' 
+                      : 'Bài tập đã quá hạn và không cho phép nộp muộn.'}
                   </p>
                 )}
               </div>
             </form>
           </div>
+          )}
         </div>
       </div>
     </div>
