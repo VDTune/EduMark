@@ -313,6 +313,19 @@ const Submissions = () => {
                 Xuất Bảng Điểm (Excel)
               </button>
             </div>
+            <label
+              className={`bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 transition-all duration-200 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+              title="Upload file nén (zip / rar) chứa bài nộp của học sinh"
+            >
+              {uploading ? 'Đang upload...' : '+ Upload bài nộp (Zip)'}
+              <input 
+                type="file" 
+                accept=".zip,.rar" 
+                className="hidden" 
+                onChange={handleUploadZip}
+                disabled={uploading}
+              />
+            </label>
           </div>
         </div>
 
@@ -440,7 +453,7 @@ const Submissions = () => {
                             </ResponsiveContainer>
                         </div>
 
-                        {/* 2. Bảng thống kê chi tiết */}
+                        {/* 2. Bảng thống kê chi tiết (Yêu cầu mới) */}
                         <div className="overflow-hidden border border-gray-200 rounded-lg mb-6">
                             <table className="min-w-full text-sm text-left">
                                 <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
