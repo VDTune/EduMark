@@ -35,7 +35,7 @@ const registerUser = async (req, res) => {
     await user.save();
 
     // Gửi email
-    const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email/${verificationToken}`;
+    const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:5174'}/verify-email/${verificationToken}`;
     const message = `
       <h1>Xác thực tài khoản EduMark</h1>
       <p>Click vào link sau để kích hoạt tài khoản:</p>
@@ -113,7 +113,7 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 phút
     await user.save();
 
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5174'}/reset-password/${resetToken}`;
     const message = `<h1>Đặt lại mật khẩu</h1><p>Click link để đặt lại mật khẩu:</p><a href="${resetUrl}">${resetUrl}</a>`;
 
     try {
