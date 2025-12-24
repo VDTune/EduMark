@@ -117,7 +117,6 @@ const SubmissionDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-10 pb-12">
-
       {/* Navigation */}
       <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
         <div className="max-padd-container">
@@ -133,7 +132,6 @@ const SubmissionDetail = () => {
       </nav>
 
       <div className="max-padd-container py-8 pt-20">
-
         <Link
           to={`/assignment/${assignmentId}/submissions`}
           className="text-gray-50 hover:text-blue-600 mb-6 inline-flex items-center transition-colors font-medium"
@@ -312,15 +310,15 @@ const SubmissionDetail = () => {
                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                 >
                     {saving ? (
-                        <>
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            Đang lưu...
-                        </>
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Đang lưu...
+                      </>
                     ) : (
-                        <>
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                            Lưu kết quả
-                        </>
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        Lưu kết quả
+                      </>
                     )}
                 </button>
               </div>

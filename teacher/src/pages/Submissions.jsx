@@ -314,7 +314,6 @@ const Submissions = () => {
               </button>
             </div>
             <label
-              // className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 transition-all duration-200"
               className={`bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 transition-all duration-200 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
               title="Upload file nén (zip / rar) chứa bài nộp của học sinh"
             >
@@ -510,7 +509,6 @@ const Submissions = () => {
                     </div>
                 )}
             </div>
-
         </div>
       </div>
     </div>
