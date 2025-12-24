@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ["teacher", "student"], default: "student", required: true },
   classes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Classroom" }],
   
-  // Mới: Xác thực email & Quên mật khẩu
+  // Trường mới cho xác thực và reset pass
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String },
   resetPasswordToken: { type: String },

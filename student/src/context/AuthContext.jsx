@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 const AuthContext = createContext()
-const TEACHER_APP_URL = 'http://localhost:5174' // Cổng của Teacher App
+// URL của Teacher App
+const TEACHER_APP_URL = 'http://localhost:5174' 
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -12,45 +13,58 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
+    
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      axios.get('/api/users/profile').then(res => {
-          if (res.data.data.role === 'teacher') {
-             // Nếu là Teacher mà lỡ vào đây, đẩy sang trang Teacher
+      
+      axios.get('/api/users/profile')
+        .then(res => {
+          const userData = res.data.data
+          
+          // LOGIC CHẶN VÒNG LẶP:
+          // Nếu là teacher -> Đẩy sang trang Teacher
+          if (userData.role === 'teacher') {
+             // Xóa token ở trang Student để tránh xung đột lần sau
+             localStorage.removeItem('token') 
              window.location.href = TEACHER_APP_URL
           } else {
-             setUser(res.data.data)
+             // Nếu là student -> Đúng nơi -> Set user
+             setUser(userData)
              setLoading(false)
           }
-        }).catch(() => { localStorage.removeItem('token'); setLoading(false) })
-    } else { setLoading(false) }
+        })
+        .catch((err) => { 
+          console.error("Profile fetch error:", err)
+          localStorage.removeItem('token')
+          setLoading(false) 
+        })
+    } else { 
+      setLoading(false) 
+    }
   }, [])
 
   const login = async (email, password, role) => {
     const res = await axios.post('/api/users/login', { email, password, role })
     const userData = res.data.data
-    localStorage.setItem('token', res.data.token)
+    const token = res.data.token
     
     if (userData.role === 'teacher') {
-      alert('Đang chuyển hướng sang trang Giáo viên...');
+      alert('Tài khoản này là Giáo viên. Đang chuyển sang trang Giáo viên...')
+      // Không lưu token ở đây để tránh loop
       window.location.href = TEACHER_APP_URL
     } else {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`
+      // Chỉ lưu token nếu đúng là Student
+      localStorage.setItem('token', token)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
       setUser(userData)
       navigate('/')
     }
   }
 
+  // ... (giữ nguyên phần register và logout) ...
   const register = async (name, email, password, role) => {
     const res = await axios.post('/api/users/register', { name, email, password, role })
-    if (res.data.token) { // Chỉ student mới có token ngay
-       localStorage.setItem('token', res.data.token)
-       axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`
-       setUser(res.data.data)
-       navigate('/')
-    } else {
-       alert(res.data.message) // Teacher cần xác thực
-    }
+    return res.data
   }
 
   const logout = () => {

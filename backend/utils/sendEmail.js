@@ -1,12 +1,11 @@
 import nodemailer from "nodemailer";
 
 const sendEmail = async (options) => {
-  // Cấu hình SMTP (Ví dụ dùng Gmail, bạn nên dùng App Password của Gmail)
   const transporter = nodemailer.createTransport({
-    service: "gmail", // Hoặc host SMTP khác
+    service: "gmail",
     auth: {
-      user: process.env.EMAIL_USERNAME, // Email của bạn
-      pass: process.env.EMAIL_PASSWORD, // App Password của bạn
+      user: process.env.EMAIL_USERNAME,
+      pass: process.env.EMAIL_PASSWORD,
     },
   });
 

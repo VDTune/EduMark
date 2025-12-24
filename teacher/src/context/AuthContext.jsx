@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 const AuthContext = createContext()
-const STUDENT_APP_URL = 'http://localhost:5173' // Cổng của Student App
+// URL của Student App
+const STUDENT_APP_URL = 'http://localhost:5173'
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -12,45 +13,55 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
+    
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      axios.get('/api/users/profile').then(res => {
-          if (res.data.data.role === 'student') {
-             // Nếu là Student mà lỡ vào đây
+      
+      axios.get('/api/users/profile')
+        .then(res => {
+          const userData = res.data.data
+          
+          // LOGIC CHẶN VÒNG LẶP:
+          if (userData.role === 'student') {
+             // Xóa token ở trang Teacher
+             localStorage.removeItem('token')
              window.location.href = STUDENT_APP_URL
           } else {
-             setUser(res.data.data)
+             // Nếu là teacher -> Đúng nơi
+             setUser(userData)
              setLoading(false)
           }
-        }).catch(() => { localStorage.removeItem('token'); setLoading(false) })
-    } else { setLoading(false) }
+        })
+        .catch((err) => { 
+          console.error("Profile fetch error:", err)
+          localStorage.removeItem('token')
+          setLoading(false) 
+        })
+    } else { 
+      setLoading(false) 
+    }
   }, [])
 
   const login = async (email, password, role) => {
     const res = await axios.post('/api/users/login', { email, password, role })
     const userData = res.data.data
-    localStorage.setItem('token', res.data.token)
+    const token = res.data.token
 
     if (userData.role === 'student') {
-      alert('Đang chuyển hướng sang trang Học sinh...');
+      alert('Tài khoản này là Học sinh. Đang chuyển sang trang Học sinh...')
       window.location.href = STUDENT_APP_URL
     } else {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`
+      localStorage.setItem('token', token)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
       setUser(userData)
       navigate('/')
     }
   }
 
+  // ... (giữ nguyên phần register và logout) ...
   const register = async (name, email, password, role) => {
     const res = await axios.post('/api/users/register', { name, email, password, role })
-    if (res.data.token) {
-       localStorage.setItem('token', res.data.token)
-       axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`
-       setUser(res.data.data)
-       navigate('/')
-    } else {
-       alert(res.data.message)
-    }
+    return res.data
   }
 
   const logout = () => {

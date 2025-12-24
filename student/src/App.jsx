@@ -21,7 +21,6 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/verify-email/:token" element={<VerifyEmail />} />
-        
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/class/:classId" element={<PrivateRoute><ClassDetail /></PrivateRoute>} />
         <Route path="/assignment/:assignmentId" element={<PrivateRoute><AssignmentDetail /></PrivateRoute>} />
