@@ -28,7 +28,8 @@ const createAssignment = async (req, res) => {
       attachments,
       subject: subject || 'Khác', // Mặc định là Khác nếu không chọn
       isSubmitRequired: req.body.isSubmitRequired !== undefined ? req.body.isSubmitRequired : true,
-      allowLate: req.body.allowLate !== undefined ? req.body.allowLate : false
+      allowLate: req.body.allowLate !== undefined ? req.body.allowLate : false,
+      resubmitAllowed: req.body.resubmitAllowed !== undefined ? req.body.resubmitAllowed : true
     });
 
     await assignment.save();

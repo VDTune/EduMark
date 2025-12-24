@@ -18,6 +18,7 @@ const assignmentSchema = new mongoose.Schema({
   },
   isSubmitRequired: { type: Boolean, default: true },
   allowLate: { type: Boolean, default: false },
+  resubmitAllowed: { type: Boolean, default: true },
 }, { timestamps: true });
 
 const Assignment = mongoose.models.Assignment || mongoose.model("Assignment", assignmentSchema);

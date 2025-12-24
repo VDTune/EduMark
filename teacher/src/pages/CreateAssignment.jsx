@@ -15,6 +15,7 @@ const CreateAssignment = () => {
   const [loading, setLoading] = useState(false)
   const [isSubmitRequired, setIsSubmitRequired] = useState(true)
   const [allowLate, setAllowLate] = useState(false)
+  const [resubmitAllowed, setResubmitAllowed] = useState(true)
 
   const navigate = useNavigate()
   const finalAnswerKey = totalScore 
@@ -47,7 +48,8 @@ const CreateAssignment = () => {
         answerKey : finalAnswerKey, 
         attachments, 
         isSubmitRequired,
-        allowLate: isSubmitRequired && !!deadline && allowLate
+        allowLate: isSubmitRequired && !!deadline && allowLate,
+        resubmitAllowed: isSubmitRequired && resubmitAllowed
       })
       alert('Giao bài tập thành công!')
       navigate(`/class/${classId}`)
@@ -178,19 +180,36 @@ const CreateAssignment = () => {
 
                 {/* Checkbox: Cho phép nộp muộn (Chỉ hiện khi Có yêu cầu nộp) */}
                 {isSubmitRequired && (
-                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
-                        <input 
-                            id="allowLate" 
-                            type="checkbox" 
-                            checked={allowLate} 
-                            onChange={(e) => setAllowLate(e.target.checked)}
-                            disabled={!deadline}
-                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50" 
-                        />
-                        <label htmlFor="allowLate" className={`text-sm text-gray-700 select-none cursor-pointer ${!deadline ? 'opacity-50' : ''}`}>
-                            Cho phép nộp bài sau khi hết hạn {!deadline && '(Cần chọn hạn nộp)'}
-                        </label>
-                    </div>
+                  <div className="flex flex-col gap-3 mt-2 pt-2 border-t border-gray-200">
+                      {/* Checkbox: Cho phép nộp muộn */}
+                      <div className="flex items-center gap-2">
+                          <input 
+                              id="allowLate" 
+                              type="checkbox" 
+                              checked={allowLate} 
+                              onChange={(e) => setAllowLate(e.target.checked)}
+                              disabled={!deadline}
+                              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50" 
+                          />
+                          <label htmlFor="allowLate" className={`text-sm text-gray-700 select-none cursor-pointer ${!deadline ? 'opacity-50' : ''}`}>
+                              Cho phép nộp bài sau khi hết hạn {!deadline && '(Cần chọn hạn nộp)'}
+                          </label>
+                      </div>
+
+                      {/* 3. Checkbox: Cho phép nộp lại (Mới thêm) */}
+                      <div className="flex items-center gap-2">
+                            <input 
+                              id="resubmitAllowed" 
+                              type="checkbox" 
+                              checked={resubmitAllowed} 
+                              onChange={(e) => setResubmitAllowed(e.target.checked)}
+                              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" 
+                          />
+                          <label htmlFor="resubmitAllowed" className="text-sm text-gray-700 select-none cursor-pointer">
+                              Cho phép nộp lại
+                          </label>
+                      </div>
+                  </div>
                 )}
               </div>         
 
