@@ -10,8 +10,11 @@ def clean_images_parallel(image_paths, max_workers=2):
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(clean_image, image_paths))
 
-    # lọc ảnh lỗi
-    results = [img for img in results if img]
+    # lọc ảnh lỗi và ghép cặp với ảnh gốc
+    final_results = []
+    for orig, clean in zip(image_paths, results):
+        if clean:
+            final_results.append((orig, clean))
 
     print("✅ Parallel cleaning finished")
-    return results
+    return final_results

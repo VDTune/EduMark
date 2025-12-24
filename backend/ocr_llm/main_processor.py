@@ -28,12 +28,15 @@ def main():
         cleaned_images = clean_images_parallel(image_paths, max_workers=1)
         log(f"Cleaned images: {cleaned_images}")
         final_images = []
+        original_images = []
 
         for item in cleaned_images:
-            if isinstance(item, (list, tuple)) and item[0]:
-                final_images.append(item[0])
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                original_images.append(item[0])
+                final_images.append(item[1])
             elif isinstance(item, str) and item:
                 final_images.append(item)
+                original_images.append(item)
 
         # 2. CHẠY OCR (1 LẦN DUY NHẤT - PARALLEL)
         ocr_results_rich = ocr_batch_parallel(final_images, max_workers=1)
@@ -41,6 +44,7 @@ def main():
         mcq_grader = MCQGrader()
         full_ocr_text_context = ""
         combined_mcq_results = {}
+        question_offset = 0
 
         for i, img_path in enumerate(final_images):
             # Lấy data OCR của trang tương ứng
@@ -64,19 +68,30 @@ def main():
 
             # --- XỬ LÝ 2: Chấm Trắc nghiệm bằng YOLO ---
             # Bước A: YOLO Detect (Tìm vòng tròn)
-            yolo_circles = mcq_grader.detect_circles(img_path)
+            yolo_input_img = original_images[i] if i < len(original_images) else img_path
+            page_mcq_results = mcq_grader.process_image(yolo_input_img, save_debug=True)
             
             # Bước B: Mapping (Dùng page_ocr_data có sẵn tọa độ)
-            if yolo_circles and processed_page_ocr_data:
-                # Lưu ý: Sửa lại hàm map_ocr_to_yolo trong mcq_grader.py 
-                # để nhận input đúng format mới nếu cần (nhưng format dict này khá giống cũ)
-                page_mcq = mcq_grader.map_ocr_to_yolo(processed_page_ocr_data, yolo_circles)
-                combined_mcq_results.update(page_mcq)
+            if page_mcq_results:
+                num_questions_in_page = len(page_mcq_results)
+                
+                # Cập nhật vào dictionary tổng
+                for local_q_num, data in page_mcq_results.items():
+                    # local_q_num là "1", "2"... của trang hiện tại
+                    # global_q_num là số thứ tự thực tế: offset + local
+                    global_q_num = str(question_offset + int(local_q_num))
+                    combined_mcq_results[global_q_num] = data
+                
+                # Cập nhật offset cho vòng lặp sau
+                # Ví dụ trang 1 tìm thấy 5 câu, offset=5. Trang 2 câu 1 sẽ thành câu 6.
+                question_offset += num_questions_in_page
             else:
                 log(f"MCQ Info: No circles or text found on {img_path}")
 
         # 5. Tổng hợp kết quả Trắc nghiệm
         mcq_text_block = mcq_grader.format_for_llm(combined_mcq_results)
+        log(f"\n=== CHI TIẾT KẾT QUẢ TRẮC NGHIỆM ===\n{mcq_text_block}\n======================================\n")
+       
         
         # 6. Gửi tất cả cho Vision LLM
         final_context = f"{mcq_text_block}\n\n=== OCR RAW TEXT ===\n{full_ocr_text_context}"

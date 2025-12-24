@@ -52,36 +52,7 @@ def deskew_image(binary_img, orig_img):
     rotated = cv2.warpAffine(orig_img, M, (bound_w, bound_h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
     return rotated, angle
 
-def enhance_mcq_marks(img_gray, out_for_mcq):
-    # Attempt to detect circular marks (bubble answers) and emphasize them
-    # Work on a blurred version to help Hough
-    blur = cv2.medianBlur(img_gray, 5)
-    # HoughCircles expects bright circles on dark background or reverse; try both
-    circles = None
-    try:
-        circles = cv2.HoughCircles(
-            blur,
-            cv2.HOUGH_GRADIENT,
-            dp=1.2,
-            minDist=15,
-            param1=60,
-            param2=18,
-            minRadius=8,
-            maxRadius=40
-        )
-    except Exception:
-        circles = None
-
-    out = out_for_mcq.copy()
-    if circles is not None:
-        circles = np.uint16(np.around(circles))
-        for (x, y, r) in circles[0, :]:
-            # draw thicker circle and fill slightly to strengthen mark
-            cv2.circle(out, (x, y), r+2, (0, 0, 0), thickness=3)
-            cv2.circle(out, (x, y), max(2, r-4), (0, 0, 0), thickness=-1)
-    return out
-
-def clean_image(file_path, for_mcq=False):
+def clean_image(file_path):
     """
     Enhanced cleaning for exam sheets (A4) with heavy salt-and-pepper noise.
     Returns path to cleaned image optimized for OCR, and optionally MCQ-enhanced image.
@@ -165,30 +136,10 @@ def clean_image(file_path, for_mcq=False):
         if ok:
             enc.tofile(cleaned_image_path)
             print("✅ OCR image saved:", cleaned_image_path)
+            return cleaned_image_path
         else:
             print("❌ Failed saving OCR image")
             return ""
-
-        # If MCQ detection needed, create an enhanced variant (emphasize circles)
-        mcq_path = None
-        if for_mcq:
-            # Work on grayscale rotated image to detect circles and emphasize
-            rotated_gray2 = rotated_gray.copy()
-            # create a white background B/W image for drawing
-            mcq_base = cv2.bitwise_not(cleaned_final_inv)  # black text on white
-            mcq_enhanced = enhance_mcq_marks(rotated_gray2, mcq_base)
-            mcq_path = os.path.join(CLEANED_DIR, f"cleaned_mcq_{uuid.uuid4().hex}.jpg")
-            ok2, enc2 = cv2.imencode(".jpg", mcq_enhanced, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-            if ok2:
-                enc2.tofile(mcq_path)
-                print("✅ MCQ image saved:", mcq_path)
-            else:
-                print("❌ Failed saving MCQ image")
-
-        # return both paths (mcq_path may be None)
-        if not for_mcq:
-            return cleaned_image_path
-        return cleaned_image_path, mcq_path
 
     except Exception as e:
         import traceback

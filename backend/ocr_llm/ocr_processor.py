@@ -123,7 +123,6 @@ def extract_text_from_image(image_path):
             new_height = int(height * scale_ratio)
             img_array = cv2.resize(img_array, (TARGET_WIDTH, new_height), interpolation=cv2.INTER_CUBIC)
 
-
         print(f"👁️ Scanning text in image...")
         
         # 4. Chạy OCR
@@ -151,10 +150,16 @@ def extract_text_from_image(image_path):
                     print(f"Text: {text} | Reliability: {score:.2f}")
                     final_structure.append(text)
 
+                    xs = [pt[0] for pt in coords]
                     ys = [pt[1] for pt in coords]
             
                     box = {
+                        'x_center': (min(xs) + max(xs)) / 2,
                         'y_center': (min(ys) + max(ys)) / 2,
+                        'x1': min(xs),
+                        'x2': max(xs),
+                        'y1': min(ys),
+                        'y2': max(ys),
                         'height': max(ys) - min(ys),
                         'img_width': width # Quan trọng để tính tỷ lệ X
                     }
@@ -162,7 +167,7 @@ def extract_text_from_image(image_path):
                     final_structure.append({
                         'text': text,
                         'box': box,
-                        'score': score
+                        'score': score #Reliability
                     })
 
         # TRƯỜNG HỢP B: Kết quả dạng Dict (Dự phòng cho các phiên bản khác)

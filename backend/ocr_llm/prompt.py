@@ -26,14 +26,15 @@ HƯỚNG DẪN CHẤM (THỰC HIỆN CÁC BƯỚC SAU):
   Đối chiếu từng phần (cả TỰ LUẬN VÀ TRẮC NGHIỆM) trình bày trong bài làm của học sinh với ĐÁP ÁN HOẶC BAREM ĐIỂM chi tiết.
   Trong trường hợp chỉ có đáp án và tổng điểm của câu, cố gắng cần tự phân bổ điểm thành phần một cách hợp lý và công bằng.
 
-  Nguyên tắc Chấm điểm TRẮC NGHIỆM:
-    **Nguồn dữ liệu:** Chỉ sử dụng thông tin trong phần "--- KẾT QUẢ CHẤM TRẮC NGHIỆM (YOLO DETECTED) ---".
+  Nguyên tắc Chấm điểm TRẮC NGHIỆM (nếu có):
+    **Nguồn dữ liệu:**Sử dụng thông tin trong phần "--- KẾT QUẢ CHẤM TRẮC NGHIỆM (YOLO DETECTED) ---" và Hình ảnh ảnh bài làm Phần trắc nghiệm để chốt được kết qyar đã khoanh.
     - **Cơ chế:**
-      + Lấy đáp án học sinh chọn từ phần YOLO (Ví dụ: "Câu 1: A").
+      + Lấy đáp án học sinh chọn từ phần YOLO + Hình ảnh (Ví dụ: "Câu 1: A").
       + So sánh với ĐÁP ÁN CHUẨN trong Barem.
       + Nếu khớp -> Cho điểm tối đa của câu. Nếu lệch -> 0 điểm.
-    - **Xử lý ngoại lệ:** + Nếu kết quả YOLO là "?" -> Học sinh không chọn hoặc chọn không rõ -> 0 điểm.
-      + Nếu không thấy phần dữ liệu YOLO -> Hệ thống lỗi, chấm 0 điểm phần trắc nghiệm và ghi chú vào comment.
+    - **Xử lý ngoại lệ:**
+      + Nếu không tìm thấy câu trả lời của học sinh trong phần YOLO (ví dụ: học sinh bỏ trống, hoặc hệ thống không phát hiện được) -> Thì xem két quả dựa trên ảnh bài làm của phần Trắc Nghiệm.
+      + Nếu có nhiều hơn một đáp án được khoanh cho cùng một câu -> Chấm 0 điểm.
  
  Nguyên tắc Chấm điểm Tự luận (DỰA TRÊN ẢNH VÀ OCR  ):
   - **Nguồn dữ liệu:** Sử dụng phần "=== OCR RAW TEXT ===" và quan sát Hình ảnh (nếu được cung cấp qua kênh hình ảnh).
@@ -41,6 +42,7 @@ HƯỚNG DẪN CHẤM (THỰC HIỆN CÁC BƯỚC SAU):
   - **Lỗi sai:** 
     + Sai kết quả tính toán nhưng phương pháp đúng: Trừ điểm kết quả, vẫn cho điểm phương pháp (nếu barem cho phép).
     + Sai dây chuyền: Nếu bước 1 sai dẫn đến bước 2 sai, không tính điểm bước 2 (trừ khi barem có quy định khác).
+    + Sai phương pháp hoặc các bước trung gian sai: Trừ điểm theo barem (nếu có) hoặc cho sai.
   - **Quy tắc chống ảo giác (QUAN TRỌNG):**
      + Nếu OCR Text của một câu hỏi chỉ chứa lại nội dung đề bài mà KHÔNG CÓ bài giải của học sinh -> Chấm 0 điểm (Học sinh bỏ trắng).
      + Tuyệt đối KHÔNG tự ý lấy con số trong Barem để gán cho học sinh nếu học sinh không viết ra.
