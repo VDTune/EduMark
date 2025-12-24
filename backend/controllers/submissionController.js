@@ -174,6 +174,40 @@ const executePythonScript = (fileUrls, answerKey) => {
   });
 };
 
+// PUT /api/submissions/:id (student only)
+const updateSubmission = async (req, res) => {
+  try {
+        const submissionId = req.params.id;
+        const { content } = req.body;
+        
+        // Tìm bài nộp cũ
+        let submission = await Submission.findById(submissionId);
+        if (!submission) return res.status(404).json({ success: false, message: "Không tìm thấy bài nộp" });
+
+        // Kiểm tra logic resubmitAllowed của Bài tập (Assignment)
+        const assignment = await Assignment.findById(submission.assignmentId);
+        if (!assignment.resubmitAllowed) {
+             return res.status(400).json({ success: false, message: "Bài tập này không cho phép nộp lại!" });
+        }
+
+        // Cập nhật nội dung
+        submission.content = content;
+        
+        // Nếu có file mới thì cập nhật file (Logic này tùy bạn: Ghi đè hay Cộng dồn)
+        if (req.files && req.files.length > 0) {
+            const newFilePaths = req.files.map(f => f.path);
+            submission.fileUrl = newFilePaths; // Ví dụ: Ghi đè file cũ bằng file mới
+        }
+
+        submission.updatedAt = Date.now(); // Cập nhật thời gian
+        await submission.save();
+
+        res.json({ success: true, data: submission });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 // GET /api/submissions/assignment/:assignmentId  (teacher only: own class)
 const getSubmissionsByAssignment = async (req, res) => {
   try {
@@ -241,4 +275,4 @@ const gradeSubmission = async (req, res) => {
 };
 
 
-export { submitAssignment, getSubmissionsByAssignment, getMySubmissions, gradeSubmission, runAiGradingInBackground };
+export { updateSubmission, submitAssignment, getSubmissionsByAssignment, getMySubmissions, gradeSubmission, runAiGradingInBackground };

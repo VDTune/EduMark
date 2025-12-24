@@ -1,5 +1,5 @@
 import express from "express";
-import { submitAssignment, getSubmissionsByAssignment, getMySubmissions, gradeSubmission } from "../controllers/submissionController.js";
+import { updateSubmission, submitAssignment, getSubmissionsByAssignment, getMySubmissions, gradeSubmission } from "../controllers/submissionController.js";
 import authMiddleware from "../middleware/auth.js";
 import { uploadZip } from "../middleware/uploadZip.js";
 import { uploadZipController } from "../controllers/uploadZipController.js";
@@ -32,6 +32,11 @@ console.log("Submission routes registered");
 // @route  POST /api/submissions/submit
 // @access Private (student)
 router.post("/submit", authMiddleware, upload.array("file"), submitAssignment);
+
+// @desc   Update a submission
+// @route  PUT /api/submissions/:id
+// @access Private (student)
+router.put("/:id", authMiddleware, upload.array("file"), updateSubmission);
 
 // @desc   Upload assignment via ZIP
 // @route  POST /api/submissions/upload-zip
