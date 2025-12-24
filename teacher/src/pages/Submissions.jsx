@@ -314,9 +314,11 @@ const Submissions = () => {
               </button>
             </div>
             <label
+              // className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 transition-all duration-200"
               className={`bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 transition-all duration-200 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
               title="Upload file nén (zip / rar) chứa bài nộp của học sinh"
             >
+              {/* + Upload bài nộp học sinh */}
               {uploading ? 'Đang upload...' : '+ Upload bài nộp (Zip)'}
               <input 
                 type="file" 
@@ -345,9 +347,8 @@ const Submissions = () => {
                     <div className="divide-y divide-gray-200">
                     {submissions.map(sub => {
                         const graded = isGraded(sub);
-                        const displayScore = (sub.grade !== null && sub.grade !== undefined) 
-                                           ? sub.grade 
-                                           : sub.aiScore;
+                        const hasOfficialGrade = sub.grade !== null && sub.grade !== undefined;
+                        const displayScore = hasOfficialGrade ? sub.grade : sub.aiScore;
 
                         const itemClass = `p-6 transition-all duration-500 ${
                             isProcessing && !graded 
@@ -379,9 +380,9 @@ const Submissions = () => {
                             
                             <div className="text-right">
                                 {graded ? (
-                                <div className={`text-lg font-bold ${getGradeColor(displayScore)} flex items-center justify-end gap-2`}>
+                                <div className={`text-lg font-bold flex items-center justify-end gap-2 ${hasOfficialGrade ? "text-green-600" : "text-red-600"}`}>
                                     {isProcessing && <span className="text-green-500 animate-scale-in">✓</span>}
-                                    {displayScore} Điểm
+                                    {displayScore} {hasOfficialGrade ? "Điểm" : "Điểm đề xuất"}
                                 </div>
                                 ) : (
                                 <span className="text-orange-600 font-medium italic">

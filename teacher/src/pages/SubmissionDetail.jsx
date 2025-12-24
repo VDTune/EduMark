@@ -54,19 +54,23 @@ const SubmissionDetail = () => {
     fetchData()
   }, [assignmentId, studentId])
 
-  const handleSaveGrade = async () => {
-    if (!gradeInput && gradeInput !== 0) return alert("Vui lòng nhập điểm") // Allow 0
+  const handleSaveGrade = async (gradeOverride = null, feedbackOverride = null) => {
+    const finalGrade = gradeOverride !== null ? gradeOverride : gradeInput;
+    const finalFeedback = feedbackOverride !== null ? feedbackOverride : feedbackInput;
+    if (finalGrade === '' || finalGrade === null || finalGrade === undefined) {
+      return alert("Vui lòng nhập điểm hoặc duyệt điểm AI");
+    }
+    // if (!gradeInput && gradeInput !== 0) return alert("Vui lòng nhập điểm") // Allow 0
 
     try {
       setSaving(true)
       await axios.post(`/api/submissions/${submission._id}/grade`, {
-        grade: gradeInput,
-        feedback: feedbackInput
+        grade: finalGrade,
+        feedback: finalFeedback
       })
-      // Updated Success Message
-      alert("Đã chấm điểm bài làm thành công!")
-      
-      // Navigate back to the list
+      setGradeInput(finalGrade);
+      setFeedbackInput(finalFeedback);
+      alert("CHẤM ĐIỂM THÀNH CÔNG!");
       navigate(`/assignment/${assignmentId}/submissions`)
       
     } catch (err) {
@@ -75,6 +79,12 @@ const SubmissionDetail = () => {
       setSaving(false)
     }
   }
+  const handleApproveAI = () => {
+    if (submission.aiScore === null || submission.aiScore === undefined) {
+      return alert("Chưa có điểm từ AI để duyệt!");
+    }
+    handleSaveGrade(submission.aiScore, submission.aiFeedback);
+  };
   
   const getImageUrl = (path) => {
     if (!path) return ""
@@ -122,7 +132,7 @@ const SubmissionDetail = () => {
         </div>
       </nav>
 
-      <div className="max-padd-container py-8 pt-24">
+      <div className="max-padd-container py-8 pt-20">
 
         <Link
           to={`/assignment/${assignmentId}/submissions`}
@@ -171,7 +181,7 @@ const SubmissionDetail = () => {
                       <img
                         src={getImageUrl(images[currentImageIndex])}
                         alt={`submission-${currentImageIndex + 1}`}
-                        className="h-[60vh] w-full object-contain mx-auto cursor-zoom-in"
+                        className="h-screen w-full object-contain mx-auto cursor-zoom-in"
                         onClick={() => setPreviewImg(getImageUrl(images[currentImageIndex]))}
                       />
                     )}
@@ -249,6 +259,16 @@ const SubmissionDetail = () => {
                     {submission.aiFeedback ? submission.aiFeedback : <em className="text-gray-400">Chưa có dữ liệu nhận xét từ AI...</em>}
                 </div>
               </div>
+              {submission.aiScore !== null && submission.aiScore !== undefined && (
+                <button
+                  onClick={handleApproveAI}
+                  disabled={saving}
+                  className="w-full mt-2 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  Duyệt & Lưu điểm này
+                </button>
+              )}
             </div>
 
             {/* TEACHER GRADE CARD */}

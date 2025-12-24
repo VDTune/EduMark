@@ -17,7 +17,7 @@
     "react-router-dom": "^7.5.0",
     "react-toastify": "^11.0.5",
     "recharts": "^3.6.0",
-    "sweetalert2": "^11.26.10",
+    "sweetalert2": "^11.26.17",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
