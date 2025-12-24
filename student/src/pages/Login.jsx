@@ -6,96 +6,46 @@ const Login = () => {
   const { login } = useContext(AuthContext)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState('student') 
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setLoading(true)
     try {
-      setLoading(true)
-      await login(email, password)
+      await login(email, password, role)
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi đăng nhập')
+      alert(err.response?.data?.message || 'Đăng nhập thất bại')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">A</span>
-            </div>
-            <span className="text-2xl font-bold text-gray-900">Azota Classroom</span>
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">Chào mừng trở lại</h1>
-          <p className="text-gray-600">Đăng nhập để tiếp tục học tập</p>
-        </div>
-
-        {/* Form */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Nhập email của bạn"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Mật khẩu
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Nhập mật khẩu"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Đang đăng nhập...
-                </div>
-              ) : (
-                'Đăng nhập'
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Chưa có tài khoản?{' '}
-              <Link to="/register" className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
-                Đăng ký ngay
-              </Link>
-            </p>
+    <div className="min-h-screen bg-gray-10 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+        <h1 className="h2 text-center mb-6">Đăng nhập</h1>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="flex gap-4 mb-4">
+            <label className={`flex-1 p-3 rounded-lg border cursor-pointer text-center transition-all ${role === 'student' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold' : 'border-gray-200'}`}>
+              <input type="radio" name="role" value="student" checked={role === 'student'} onChange={() => setRole('student')} className="hidden" /> Học sinh
+            </label>
+            <label className={`flex-1 p-3 rounded-lg border cursor-pointer text-center transition-all ${role === 'teacher' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold' : 'border-gray-200'}`}>
+              <input type="radio" name="role" value="teacher" checked={role === 'teacher'} onChange={() => setRole('teacher')} className="hidden" /> Giáo viên
+            </label>
           </div>
-        </div>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full p-3 border rounded-lg" required />
+          <div>
+            <div className="flex justify-between mb-1"><label className="text-sm">Mật khẩu</label><Link to="/forgot-password" class="text-sm text-blue-600">Quên mật khẩu?</Link></div>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu" className="w-full p-3 border rounded-lg" required />
+          </div>
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
+            {loading ? 'Đang xử lý...' : 'Đăng nhập'}
+          </button>
+        </form>
+        <div className="mt-6 text-center"><p>Chưa có tài khoản? <Link to="/register" className="text-blue-600 font-bold">Đăng ký</Link></p></div>
       </div>
     </div>
   )
 }
-
 export default Login

@@ -5,7 +5,13 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ["teacher", "student"], default: "student", required: true },
-  classes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Classroom" }]
+  classes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Classroom" }],
+  
+  // Trường mới cho xác thực và reset pass
+  isVerified: { type: Boolean, default: false },
+  verificationToken: { type: String },
+  resetPasswordToken: { type: String },
+  resetPasswordExpire: { type: Date }
 }, { timestamps: true });
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);

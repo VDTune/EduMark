@@ -1,15 +1,32 @@
 import { useContext } from 'react'
 import { Link } from 'react-router-dom'
 import AuthContext from '../context/AuthContext'
+import Swal from 'sweetalert2'
 
 const Profile = () => {
   const { user, logout } = useContext(AuthContext)
 
   const handleLogout = () => {
-    if (window.confirm('Bạn có chắc muốn đăng xuất?')) {
-      logout()
-    }
-  }
+    Swal.fire({
+      title: 'Đăng xuất?',
+      text: "Bạn có chắc chắn muốn thoát phiên làm việc?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Đồng ý',
+      cancelButtonText: 'Hủy'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        logout()
+        // Có thể thêm thông báo chào tạm biệt nếu muốn
+        Swal.fire(
+          'Đã đăng xuất!',
+          'Hẹn gặp lại bạn.',
+          'success'
+        )
+      }
+    })}
 
   // Lấy chữ cái đầu tiên
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'U'

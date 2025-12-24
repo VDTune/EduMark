@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Submissions = () => {
   const { assignmentId } = useParams()
@@ -11,9 +12,9 @@ const Submissions = () => {
   const [allStudents, setAllStudents] = useState([])
   const [teacherName, setTeacherName] = useState('')
 
-  const [uploading, setUploading] = useState(false) // Loading khi upload zip
-  const [isProcessing, setIsProcessing] = useState(false) // Trạng thái AI đang chấm
-  const [gradingFinished, setGradingFinished] = useState(false) // Trạng thái đã chấm xong toàn bộ
+  const [uploading, setUploading] = useState(false) 
+  const [isProcessing, setIsProcessing] = useState(false) 
+  const [gradingFinished, setGradingFinished] = useState(false) 
   const isProcessingRef = useRef(isProcessing);
 
   useEffect(() => {
@@ -24,36 +25,28 @@ const Submissions = () => {
       try {
         if (!isSilent) setLoading(true)
         
-        // Lấy thông tin bài tập
         const assignmentRes = await axios.get(`/api/assignments/${assignmentId}`)
         const assignmentData = assignmentRes.data.data
         setAssignmentInfo(assignmentData)
         
-        // Lấy bài nộp
         const submissionsRes = await axios.get(`/api/submissions/assignment/${assignmentId}`)
         const subs = submissionsRes.data.data || []
         setSubmissions(subs)
 
         if (isProcessingRef.current) {
-         // Kiểm tra xem còn bài nào chưa có điểm không
          const pending = subs.filter(s => s.aiScore === null || s.aiScore === undefined);
-         
-         // Nếu danh sách có bài VÀ không còn bài nào chưa chấm -> Đã xong
          if (subs.length > 0 && pending.length === 0) {
             setIsProcessing(false);
             setGradingFinished(true);
-            setTimeout(() => setGradingFinished(false), 5000); // Tắt thông báo xong sau 5s
+            setTimeout(() => setGradingFinished(false), 5000); 
          }
       }
         
-        // Lấy danh sách tất cả học sinh trong lớp
         if (assignmentData && assignmentData.classId && !isSilent) {
             const classId = assignmentData.classId._id || assignmentData.classId;
             const classRes = await axios.get(`/api/classrooms/my`); 
-            // Tìm đúng lớp đó
             const currentClass = classRes.data.data.find(c => c._id === classId)
             setAllStudents(currentClass?.students || []);
-            console.log("Thông tin lớp học tìm thấy:", currentClass);
             setTeacherName(currentClass?.teacher?.name || '');
         }
       } catch (err) {
@@ -72,13 +65,64 @@ const Submissions = () => {
     let interval;
     if (isProcessing) {
         interval = setInterval(() => {
-            fetchData(true); // Gọi chế độ Silent (không hiện loading to)
+            fetchData(true); 
         }, 3000);
     }
     return () => clearInterval(interval);
   }, [isProcessing]);
 
-  // Xuat file excel
+  // Logic thống kê và Bảng điểm
+  const statistics = useMemo(() => {
+    if (submissions.length === 0) return null;
+
+    let excellent = 0; // >= 8
+    let good = 0;      // 6.5 - <8
+    let average = 0;   // 5 - <6.5
+    let weak = 0;      // < 5
+    let totalScore = 0;
+    let count = 0;
+    let max = 0;
+    let min = 10;
+
+    submissions.forEach(sub => {
+        // Ưu tiên lấy điểm giáo viên chấm, nếu chưa thì lấy điểm AI
+        let score = null;
+        if (sub.grade !== undefined && sub.grade !== null) {
+            score = sub.grade;
+        } else if (sub.aiScore !== undefined && sub.aiScore !== null) {
+            score = sub.aiScore;
+        }
+        
+        if (score !== null) {
+            const numScore = Number(score);
+            totalScore += numScore;
+            count++;
+            if (numScore > max) max = numScore;
+            if (numScore < min) min = numScore;
+
+            if (numScore >= 8) excellent++;
+            else if (numScore >= 6.5) good++;
+            else if (numScore >= 5) average++;
+            else weak++;
+        }
+    });
+
+    if (count === 0) return null;
+
+    return {
+        chartData: [
+            { name: 'Giỏi (≥8)', value: excellent, color: '#4ade80', label: 'Giỏi' }, 
+            { name: 'Khá (6.5-8)', value: good, color: '#60a5fa', label: 'Khá' },   
+            { name: 'Trung bình (5-6.5)', value: average, color: '#facc15', label: 'Trung bình' },  
+            { name: 'Yếu (<5)', value: weak, color: '#f87171', label: 'Yếu' },       
+        ],
+        avg: (totalScore / count).toFixed(2),
+        max,
+        min,
+        gradedCount: count
+    };
+  }, [submissions]);
+
   const handleExportExcel = () => {
     if (!allStudents || allStudents.length === 0) {
       alert("Không tìm thấy danh sách học sinh để xuất!");
@@ -88,76 +132,59 @@ const Submissions = () => {
     const assignmentTitle = assignmentInfo?.title || "Bài tập";
     const className = assignmentInfo?.classId?.name || "Lớp học";
 
-    // Tạo Header
     const worksheetData = [
       [`Bảng điểm môn ${assignmentTitle} - ${className}`],
       [`Giáo viên: ${teacherName}`],
-      [`Tổng số học sinh: ${allStudents.length}`], // Đếm tổng học sinh
+      [`Tổng số học sinh: ${allStudents.length}`], 
       [""],
       ["STT", "Họ và tên", "Email/Mã HS", "Lớp", `Điểm ${assignmentTitle}`, "Trạng thái", "Điểm AI"]
     ];
 
-    // Tạo Map (từ điển) cho các bài nộp để tra cứu nhanh hơn
-    // Key là studentId, Value là object bài nộp
     const submissionMap = {};
     submissions.forEach(sub => {
-        // Lưu ý: kiểm tra xem sub.studentId là object hay string id
         const sId = sub.studentId?._id || sub.studentId; 
         submissionMap[sId] = sub;
     });
 
-    // DUYỆT QUA DANH SÁCH TẤT CẢ HỌC SINH (allStudents)
     allStudents.forEach((student, index) => {
       const studentId = student._id;
-      const sub = submissionMap[studentId]; // Tìm bài nộp của học sinh này
+      const sub = submissionMap[studentId]; 
 
-      let grade = 0;       // Mặc định là 0 điểm
+      let grade = 0;       
       let status = "Chưa nộp";
       let aiscore = 0;
 
       if (sub) {
-        // Nếu ĐÃ NỘP bài
         status = "Đã nộp";
         if (sub.grade !== null && sub.grade !== undefined) {
-            grade = sub.grade; // Lấy điểm thật nếu đã chấm
+            grade = sub.grade; 
         } else {
-            grade = "Chưa chấm"; // Đã nộp nhưng giáo viên chưa chấm
+            grade = "Chưa chấm"; 
         }
         if (sub.aiScore !== null && sub.aiScore !== undefined) {
             aiscore = sub.aiScore;
         }
       } 
-      // Nếu sub === undefined thì giữ nguyên grade = 0, status = "Chưa nộp"
 
       worksheetData.push([
         index + 1,
         student.name,
-        student.email || student.studentId, // Thêm email hoặc mã HS để dễ nhận diện
+        student.email || student.studentId, 
         className,
-        grade, // Điểm (0 hoặc điểm thật)
-        status, // Trạng thái để giáo viên dễ nhìn
+        grade, 
+        status, 
         aiscore
       ]);
     });
 
-    // Tạo Sheet và File (như cũ)
     const ws = XLSX.utils.aoa_to_sheet(worksheetData);
-    
-    // Merge Header
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, 
       { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
     ];
-    
-    // Thêm style alignment và font-weight cho header
-    const headerStyle = { 
-      font: { bold: true, sz: 14 },
-      alignment: { horizontal: "center", vertical: "center" } 
-    };
+    const headerStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" } };
     if (ws['A1']) ws['A1'].s = headerStyle;
     if (ws['A2']) ws['A2'].s = { ...headerStyle, font: { bold: false, sz: 12 } };
-
-    // Chỉnh độ rộng cột
     ws['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10}];
 
     const wb = XLSX.utils.book_new();
@@ -174,16 +201,14 @@ const Submissions = () => {
     formData.append("assignmentId", assignmentId);
 
     try {
-      setUploading(true); // Bắt đầu loading overlay
+      setUploading(true); 
       setGradingFinished(false);
       await axios.post("/api/submissions/upload-zip", formData, {
         headers: { "Content-Type": "multipart/form-data" }
       });
-
       setUploading(false);
       setIsProcessing(true);
       alert("Upload thành công! Đang quét và tạo bài nộp...");
-
       fetchData(true);
     } catch (err) {
       console.error(err);
@@ -192,15 +217,18 @@ const Submissions = () => {
     }
   };
 
-
   const getGradeColor = (grade) => {
     if (grade >= 8) return 'text-green-600'
     if (grade >= 6.5) return 'text-yellow-600'
     return 'text-red-600'
   }
 
-  // Helper check đã chấm chưa
-  const isGraded = (sub) => sub.aiScore !== null && sub.aiScore !== undefined;
+  // Đã chấm nếu có điểm giáo viên HOẶC điểm AI
+  const isGraded = (sub) => {
+    const hasTeacherGrade = sub.grade !== null && sub.grade !== undefined;
+    const hasAiScore = sub.aiScore !== null && sub.aiScore !== undefined;
+    return hasTeacherGrade || hasAiScore;
+  };
 
   if (loading) {
     return (
@@ -213,7 +241,6 @@ const Submissions = () => {
 
   return (
     <div className="min-h-screen bg-gray-10">
-    {/* --- OVERLAY LOADING KHI UPLOAD ZIP --- */}
       {uploading && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex flex-col items-center justify-center backdrop-blur-sm">
             <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center animate-bounce-slight">
@@ -224,7 +251,6 @@ const Submissions = () => {
         </div>
       )}
 
-      {/* --- BANNER TRẠNG THÁI AI ĐANG CHẤM --- */}
       {isProcessing && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg z-40 flex items-center gap-3 animate-pulse">
             <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -235,7 +261,6 @@ const Submissions = () => {
         </div>
       )}
 
-      {/* --- POPUP THÀNH CÔNG KHI CHẤM XONG --- */}
       {gradingFinished && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-8 py-4 rounded-lg shadow-xl z-50 flex items-center gap-3 animate-bounce">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,7 +273,6 @@ const Submissions = () => {
         </div>
       )}
 
-      {/* Navigation */}
       <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
         <div className="max-padd-container">
           <div className="flexBetween py-4">
@@ -263,7 +287,6 @@ const Submissions = () => {
       </nav>
 
       <div className="max-padd-container py-8 pt-20">
-        {/* Header */}
         <div className="mb-8">
           <Link to={`/class/${assignmentInfo?.classId._id}`} className="flex items-center text-gray-50 hover:text-gray-90 mb-4 transition-colors">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,132 +313,190 @@ const Submissions = () => {
                 Xuất Bảng Điểm (Excel)
               </button>
             </div>
-            <label
-              // className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 transition-all duration-200"
-              className={`bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 transition-all duration-200 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
-              title="Upload file nén (zip / rar) chứa bài nộp của học sinh"
-            >
-              {/* + Upload bài nộp học sinh */}
-              {uploading ? 'Đang upload...' : '+ Upload bài nộp (Zip)'}
-              <input 
-                type="file" 
-                accept=".zip,.rar" 
-                className="hidden" 
-                onChange={handleUploadZip}
-                disabled={uploading}
-              />
-            </label>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200">
-          {submissions.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 mx-auto mb-4 text-gray-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <h3 className="text-lg font-semibold text-gray-90 mb-2">Chưa có bài nộp nào</h3>
-              {/* <p className="text-gray-50">Học sinh chưa nộp bài cho bài tập này</p> */}
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {submissions.map(sub => {
-                // <div key={sub._id} className="p-6">
-                const graded = isGraded(sub);
-                
-                // Logic CSS: Nếu đang processing mà bài này chưa có điểm -> Mờ đi & Vô hiệu hóa
-                const itemClass = `p-6 transition-all duration-500 ${
-                    isProcessing && !graded 
-                    ? 'opacity-40 grayscale pointer-events-none bg-gray-50 relative overflow-hidden' 
-                    : 'opacity-100 bg-white'
-                }`;
-
-                return (
-                  <div key={sub._id} className={itemClass}>
-                    
-                    {/* Hiệu ứng Scanning/Loading cho item chưa chấm */}
-                    {isProcessing && !graded && (
-                        <div className="absolute inset-0 flex items-center justify-center z-10">
-                             <div className="bg-white/80 px-4 py-2 rounded-full shadow-sm flex items-center gap-2">
-                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                <span className="text-xs font-bold text-blue-600">Đang chấm...</span>
-                             </div>
-                        </div>
-                    )}
-
-                    <div className="flexBetween mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flexCenter text-white font-medium">
-                          {sub.studentId?.name?.charAt(0)?.toUpperCase() || 'H'}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-90">{sub.studentId?.name}</h3>
-                          <p className="text-sm text-gray-50">{sub.studentId?.email}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="text-right">
-                        {/* {sub.aiScore !== undefined && sub.aiScore !== null ? (
-                          <div className={`text-lg font-bold ${getGradeColor(sub.grade)}`}>
-                            {sub.aiScore} Điểm
-                          </div>
-                        ) : (
-                          <span className="text-orange-600 font-medium">Chưa chấm</span>
-                        )} */}
-                        {graded ? (
-                          <div className={`text-lg font-bold ${getGradeColor(sub.grade)} flex items-center justify-end gap-2`}>
-                            {/* Icon đã chấm xong */}
-                            {isProcessing && <span className="text-green-500 animate-scale-in">✓</span>}
-                            {sub.aiScore} Điểm
-                          </div>
-                        ) : (
-                          <span className="text-orange-600 font-medium italic">
-                             {isProcessing ? 'Đang đợi AI...' : 'Chưa chấm'}
-                          </span>
-                        )}
-                        <p className="text-sm text-gray-50">
-                          {new Date(sub.submittedAt).toLocaleString('vi-VN')}
-                        </p>
-                      </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* CỘT TRÁI: DANH SÁCH BÀI NỘP */}
+            <div className="lg:col-span-2">
+                <div className="bg-white rounded-xl border border-gray-200">
+                {submissions.length === 0 ? (
+                    <div className="text-center py-12">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-gray-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 className="text-lg font-semibold text-gray-90 mb-2">Chưa có bài nộp nào</h3>
                     </div>
+                ) : (
+                    <div className="divide-y divide-gray-200">
+                    {submissions.map(sub => {
+                        const graded = isGraded(sub);
+                        const displayScore = (sub.grade !== null && sub.grade !== undefined) 
+                                           ? sub.grade 
+                                           : sub.aiScore;
 
-                    <div className="mb-4">
-                      <p className="text-gray-90 mb-2">
-                        <span className="font-medium">Nội dung:</span> {sub.content || 'Không có nội dung'}
-                      </p>
-                      {sub.fileUrl && (
-                        <a 
-                          href={`http://localhost:5000${sub.fileUrl}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-blue-600 hover:text-blue-700 transition-colors"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          Tải file bài nộp
-                        </a>
-                      )}
+                        const itemClass = `p-6 transition-all duration-500 ${
+                            isProcessing && !graded 
+                            ? 'opacity-40 grayscale pointer-events-none bg-gray-50 relative overflow-hidden' 
+                            : 'opacity-100 bg-white'
+                        }`;
+
+                        return (
+                        <div key={sub._id} className={itemClass}>
+                            {isProcessing && !graded && (
+                                <div className="absolute inset-0 flex items-center justify-center z-10">
+                                    <div className="bg-white/80 px-4 py-2 rounded-full shadow-sm flex items-center gap-2">
+                                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                        <span className="text-xs font-bold text-blue-600">Đang chấm...</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flexBetween mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flexCenter text-white font-medium">
+                                {sub.studentId?.name?.charAt(0)?.toUpperCase() || 'H'}
+                                </div>
+                                <div>
+                                <h3 className="font-semibold text-gray-90">{sub.studentId?.name}</h3>
+                                <p className="text-sm text-gray-50">{sub.studentId?.email}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="text-right">
+                                {graded ? (
+                                <div className={`text-lg font-bold ${getGradeColor(displayScore)} flex items-center justify-end gap-2`}>
+                                    {isProcessing && <span className="text-green-500 animate-scale-in">✓</span>}
+                                    {displayScore} Điểm
+                                </div>
+                                ) : (
+                                <span className="text-orange-600 font-medium italic">
+                                    {isProcessing ? 'Đang đợi AI...' : 'Chưa chấm'}
+                                </span>
+                                )}
+                                <p className="text-sm text-gray-50">
+                                {new Date(sub.submittedAt).toLocaleString('vi-VN')}
+                                </p>
+                            </div>
+                            </div>
+
+                            <div className="mb-4">
+                            <p className="text-gray-90 mb-2">
+                                <span className="font-medium">Nội dung:</span> {sub.content || 'Không có nội dung'}
+                            </p>
+                            
+                            {/* --- ĐÃ XÓA PHẦN LINK TẢI FILE Ở ĐÂY THEO YÊU CẦU --- */}
+                            
+                            </div>
+
+                            {sub.feedback && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                <p className="text-sm text-blue-900">
+                                <span className="font-medium">Phản hồi:</span> {sub.feedback}
+                                </p>
+                            </div>
+                            )}
+                            <Link 
+                            to={`/assignment/${assignmentId}/submissions/${sub.studentId?._id}`}
+                            className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                            >
+                            Xem chi tiết →
+                            </Link>
+                        </div>
+                        )
+                    })}
                     </div>
-
-                    {sub.feedback && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                        <p className="text-sm text-blue-900">
-                          <span className="font-medium">Phản hồi:</span> {sub.feedback}
-                        </p>
-                      </div>
-                    )}
-                    <Link 
-                      to={`/assignment/${assignmentId}/submissions/${sub.studentId?._id}`}
-                      className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                    >
-                      Xem chi tiết →
-                    </Link>
-                  </div>
-                )
-              })}
+                )}
+                </div>
             </div>
-          )}
+
+            {/* CỘT PHẢI: BIỂU ĐỒ & BẢNG THỐNG KÊ */}
+            <div className="lg:col-span-1">
+                {statistics ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 sticky top-24">
+                        <h3 className="text-lg font-bold text-gray-90 mb-4 text-center">Phổ điểm lớp học</h3>
+                        
+                        {/* 1. Biểu đồ tròn */}
+                        <div className="h-64 w-full mb-6">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={statistics.chartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {statistics.chartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend verticalAlign="bottom" height={36}/>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* 2. Bảng thống kê chi tiết */}
+                        <div className="overflow-hidden border border-gray-200 rounded-lg mb-6">
+                            <table className="min-w-full text-sm text-left">
+                                <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+                                    <tr>
+                                        <th className="px-4 py-2">Loại điểm</th>
+                                        <th className="px-4 py-2 text-center">SL</th>
+                                        <th className="px-4 py-2 text-right">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {statistics.chartData.map((item, idx) => (
+                                        <tr key={idx}>
+                                            <td className="px-4 py-2 flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full" style={{backgroundColor: item.color}}></div>
+                                                {item.label}
+                                            </td>
+                                            <td className="px-4 py-2 text-center font-medium">{item.value}</td>
+                                            <td className="px-4 py-2 text-right text-gray-500">
+                                                {((item.value / statistics.gradedCount) * 100).toFixed(0)}%
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    <tr className="bg-gray-50 font-bold text-gray-900">
+                                        <td className="px-4 py-2">Tổng</td>
+                                        <td className="px-4 py-2 text-center">{statistics.gradedCount}</td>
+                                        <td className="px-4 py-2 text-right">100%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* 3. Các chỉ số phụ */}
+                        <div className="space-y-3 pt-4 border-t border-gray-100">
+                            <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                <span className="text-blue-600 text-sm font-medium">Điểm trung bình:</span>
+                                <span className="font-bold text-blue-900 text-lg">{statistics.avg}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-green-50 rounded-lg text-center">
+                                    <p className="text-xs text-green-600 mb-1 font-medium">Cao nhất</p>
+                                    <p className="font-bold text-green-900">{statistics.max}</p>
+                                </div>
+                                <div className="p-3 bg-red-50 rounded-lg text-center">
+                                    <p className="text-xs text-red-600 mb-1 font-medium">Thấp nhất</p>
+                                    <p className="font-bold text-red-900">{statistics.min}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-400">
+                        <p>Chưa có dữ liệu điểm số để thống kê</p>
+                    </div>
+                )}
+            </div>
+
         </div>
       </div>
     </div>

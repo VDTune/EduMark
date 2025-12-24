@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import AuthContext from '../context/AuthContext'
+import Swal from 'sweetalert2'
 
 const Dashboard = () => {
   const { user, logout } = useContext(AuthContext)
@@ -37,10 +38,40 @@ const Dashboard = () => {
   }, [user])
 
   const handleLogout = () => {
-    if (window.confirm('Bạn có chắc muốn đăng xuất?')) {
-      logout()
-    }
-  }
+        Swal.fire({
+          title: 'Đăng xuất?',
+          text: "Bạn có chắc chắn muốn thoát phiên làm việc?",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#3b82f6', // Màu xanh (giống theme của bạn)
+          cancelButtonColor: '#ef4444',  // Màu đỏ
+          confirmButtonText: 'Đồng ý',
+          cancelButtonText: 'Hủy',
+          background: '#fff',
+          customClass: {
+            popup: 'rounded-xl', // Bo tròn góc popup cho đẹp
+            title: 'text-xl font-bold text-gray-800',
+            content: 'text-gray-600'
+          }
+        }).then((result) => {
+          if (result.isConfirmed) {
+            logout() // Gọi hàm logout từ context
+            
+            // Tùy chọn: Hiển thị thông báo nhỏ trước khi chuyển trang
+            const Toast = Swal.mixin({
+              toast: true,
+              position: 'top-end',
+              showConfirmButton: false,
+              timer: 1500,
+              timerProgressBar: true,
+            })
+            Toast.fire({
+              icon: 'success',
+              title: 'Đã đăng xuất thành công'
+            })
+          }
+        })
+      }
 
   return (
     <div className="min-h-screen bg-gray-10">
