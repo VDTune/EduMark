@@ -79,7 +79,7 @@ const AssignmentDetail = () => {
     formData.append('content', content || '')
     if (files && files.length > 0) {
       files.forEach((file) => {
-        formData.append("file", file);  // key phải trùng với backend (vd: files)
+        formData.append("images", file);  // key phải trùng với backend (vd: files)
       });
     }
 

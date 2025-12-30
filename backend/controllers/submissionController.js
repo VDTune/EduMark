@@ -1,278 +1,210 @@
-// backend/controllers/submissionController.js
 import Submission from "../models/submissionModel.js";
 import Assignment from "../models/assignmentModel.js";
 import Classroom from "../models/classroomModel.js";
 import { spawn } from "child_process";
 import path from "path";
 
-/**
- * Chạy quy trình chấm điểm AI trong nền.
- * @param {string} submissionId - ID của bài nộp cần chấm.
- * @param {string[]} fileUrls - Mảng các đường dẫn tệp của bài nộp.
- * @param {string} answerKey - Đáp án của bài tập.
- */
-const runAiGradingInBackground = async (submissionId, fileUrls, answerKey) => {
-  console.log(`[AI Background] Bắt đầu chấm điểm cho submission: ${submissionId}`);
-  try {
-    // Gọi script Python và chờ kết quả (logic này được giữ nguyên từ trước)
-    const aiGradingResult = await executePythonScript(fileUrls, answerKey);
-
-    // Cập nhật bài nộp với kết quả từ AI
-    if (aiGradingResult && Object.keys(aiGradingResult).length > 0) {
-      const updatedSubmission = await Submission.findByIdAndUpdate(
-        submissionId,
-        {
-          aiScore: aiGradingResult?.score ?? null,
-          aiFeedback: aiGradingResult?.comment ?? aiGradingResult?.feedback ?? null,
-          aidetail: aiGradingResult?.details ?? [],
-        },
-        { new: true }
-      );
-      console.log(`[AI Background] Đã cập nhật điểm AI cho submission: ${submissionId}`, { score: updatedSubmission.aiScore });
-    } else {
-      console.log(`[AI Background] Không có kết quả từ AI cho submission: ${submissionId}`);
-    }
-  } catch (error) {
-    console.error(`[AI Background] Lỗi nghiêm trọng khi chấm điểm cho submission ${submissionId}:`, error);
-  }
-};
-
-const submitAssignment = async (req, res) => {
-  try {
-    const studentId = req.user.userId;
-    const { assignmentId, content, fileUrl: fileUrlFromBody } = req.body;
-    const files = req.files;
-
-    if (!assignmentId) {
-      return res.status(400).json({ success: false, message: "Missing assignmentId" });
-    }
-
-    const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) {
-      return res.status(404).json({ success: false, message: "Assignment not found" });
-    }
-
-    const classroom = await Classroom.findById(assignment.classId);
-    if (!classroom) {
-      return res.status(404).json({ success: false, message: "Class not found" });
-    }
-
-    if (!classroom.students.map(s => s.toString()).includes(studentId)) {
-      return res.status(403).json({ success: false, message: "You are not in this class" });
-    }
-    const uploadedFileUrls = files.map(f => `./uploads/${f.filename}`);
-    const fileUrl = uploadedFileUrls.length > 0 ? uploadedFileUrls : (fileUrlFromBody ? [fileUrlFromBody] : []);
-    console.log('Files saved:', fileUrl.length > 0 ? { count: fileUrl.length, paths: fileUrl } : 'No file');
-
-    // 1. Lưu bài nộp vào database trước mà không cần chờ AI
-    const submission = new Submission({
-      assignmentId,
-      studentId,
-      content,
-      fileUrl,
-      // Các trường AI sẽ được cập nhật sau
-    });
-    await submission.save();
-    console.log('Đã lưu bài nộp:', { submissionId: submission._id, studentId });
-
-    // 2. Gửi phản hồi thành công cho người dùng ngay lập tức
-    res.status(201).json({ success: true, data: submission });
-
-    // 3. Sau khi đã phản hồi, kích hoạt tiến trình AI trong nền (fire-and-forget)
-    if (fileUrl.length > 0 && assignment.answerKey) {
-      // Không dùng await ở đây để nó chạy ngầm
-      runAiGradingInBackground(submission._id, fileUrl, assignment.answerKey);
-    }
-
-  } catch (error) {
-    console.error("submitAssignment error:", error.message, error.stack);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-
-/**
- * @param {string[]} fileUrls - Mảng các đường dẫn tệp.
- * @param {string} answerKey - Đáp án.
- * @returns {Promise<object>} - Promise giải quyết với kết quả JSON từ script.
- */
+// --- 1. Helper: Gọi Python ---
 const executePythonScript = (fileUrls, answerKey) => {
   return new Promise((resolve) => {
-    const PY_TIMEOUT_MS = 600000; // 10 phút
+    // process.cwd() lấy thư mục gốc của dự án
     const pythonScript = path.join(process.cwd(), "ocr_llm", "main_processor.py");
+    
     const args = [pythonScript, fileUrls.join(","), answerKey || ""];
+    
+    console.log("[Python Executor] Calling Python with:", args);
 
-    const pythonProcess = spawn("python", args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONLEGACYWINDOWSSTDIO: 'utf-8'
-      }
+    // --- SỬA LỖI Ở ĐÂY: Đổi tên biến 'process' thành 'pythonProcess' ---
+    const pythonProcess = spawn("python", args); 
+    // Lưu ý: Nếu server chạy Linux/Mac, đổi "python" thành "python3"
+
+    let dataStr = "";
+    let errorStr = "";
+
+    pythonProcess.stdout.on("data", (data) => {
+        dataStr += data.toString();
     });
 
-    let stdoutData = "";
-    let stderrData = "";
-    let finished = false;
-
-    const timeout = setTimeout(() => {
-      if (!finished) {
-        console.error("Python process timeout, killing...");
-        try { pythonProcess.kill("SIGKILL"); } catch (e) { /* ignore */ }
-        resolve({}); // Giải quyết với object rỗng khi timeout
-      }
-    }, PY_TIMEOUT_MS);
-
-    pythonProcess.stdout.on("data", (chunk) => {
-      stdoutData += chunk.toString();
+    pythonProcess.stderr.on("data", (data) => {
+        errorStr += data.toString();
+        // Vẫn in ra log để debug, nhưng Python in warning cũng vào đây nên không hẳn là lỗi
+        console.error(`[Python Log] ${data}`);
     });
-
-    pythonProcess.stderr.on("data", (chunk) => {
-      const s = chunk.toString();
-      stderrData += s;
-      console.error(`[Python stderr] ${s}`);
-    });
-
+    
     pythonProcess.on("close", (code) => {
-      finished = true;
-      clearTimeout(timeout);
-      console.log(`Python process finish with code: ${code}`);
-
-      if (!stdoutData) {
-        console.warn("Python không trả về stdout.");
-        return resolve({});
-      }
-
-      console.log("🔍 RAW STDOUT TỪ PYTHON:", stdoutData);
-
-      try {
-        const startMarker = "<<<JSON_START>>>";
-        const endMarker = "<<<JSON_END>>>";
-        const startIndex = stdoutData.indexOf(startMarker);
-        const endIndex = stdoutData.indexOf(endMarker);
-
-        if (startIndex === -1 || endIndex === -1) {
-          console.error("❌ KHÔNG TÌM THẤY MARKER JSON!");
-          // Fallback: thử tìm một đối tượng JSON bất kỳ trong output
-          try {
-            const jsonMatch = stdoutData.match(/\{[\s\S]*\}/);
-            if (jsonMatch) return resolve(JSON.parse(jsonMatch[0]));
-          } catch (e) {}
-          return resolve({});
+        try {
+            // Tìm chuỗi JSON nằm giữa 2 thẻ đánh dấu
+            const jsonMatch = dataStr.match(/<<<JSON_START>>>([\s\S]*?)<<<JSON_END>>>/);
+            if (jsonMatch && jsonMatch[1]) {
+                resolve(JSON.parse(jsonMatch[1]));
+            } else {
+                console.warn("[Python Executor] No JSON found in output.");
+                // Log thử raw output xem nó in ra cái gì mà không có JSON
+                if (dataStr.trim()) console.log("[Python Raw Output]:", dataStr);
+                resolve({}); 
+            }
+        } catch (e) { 
+            console.error("[Python Executor] JSON Parse Error:", e);
+            resolve({}); 
         }
-
-        const jsonString = stdoutData.slice(startIndex + startMarker.length, endIndex).trim();
-        console.log("✅ JSON STRING ĐÃ CẮT:", jsonString);
-        const parsed = JSON.parse(jsonString);
-        return resolve(parsed);
-
-      } catch (parseErr) {
-        console.error("❌ LỖI PARSE JSON:", parseErr);
-        return resolve({});
-      }
     });
   });
 };
 
-// PUT /api/submissions/:id (student only)
+// --- 2. Helper: Chạy AI ngầm ---
+const runAiGradingInBackground = async (submissionId, fileUrls, answerKey) => {
+  console.log(`[AI Background] 🚀 Kích hoạt chấm điểm cho submission: ${submissionId}`);
+  
+  executePythonScript(fileUrls, answerKey).then(async (result) => {
+      if (result && (result.score !== undefined || result.comment)) {
+        console.log(`[AI Background] ✅ AI chấm xong. Score: ${result.score}`);
+        
+        await Submission.findByIdAndUpdate(submissionId, {
+          aiScore: result.score,
+          aiFeedback: result.comment,
+          aidetail: result.details,
+        });
+      } else {
+        console.log(`[AI Background] ⚠️ AI trả về kết quả rỗng.`);
+      }
+  }).catch(err => {
+      console.error(`[AI Background] ❌ Lỗi Fatal:`, err);
+  });
+};
+
+// --- 3. Controller: Nộp bài mới ---
+const submitAssignment = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const { assignmentId, content } = req.body;
+    
+    const fileUrls = req.files ? req.files.map(f => f.path) : [];
+    
+    console.log(`[Submit] User ${studentId} nộp bài cho ${assignmentId}. Files: ${fileUrls.length}`);
+
+    const submission = new Submission({
+      assignmentId,
+      studentId,
+      content: content || "",
+      fileUrl: fileUrls,
+      submittedAt: Date.now()
+    });
+    await submission.save();
+
+    const assignment = await Assignment.findById(assignmentId);
+    
+    res.status(201).json({ success: true, data: submission });
+
+    if (fileUrls.length > 0 && assignment?.answerKey) {
+        runAiGradingInBackground(submission._id, fileUrls, assignment.answerKey);
+    } else {
+        console.log("[Submit] Không kích hoạt AI (Thiếu file hoặc thiếu AnswerKey).");
+    }
+
+  } catch (error) {
+    console.error("[Submit Error]", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// --- 4. Controller: Nộp lại / Cập nhật bài ---
 const updateSubmission = async (req, res) => {
   try {
-        const submissionId = req.params.id;
-        const { content } = req.body;
-        
-        // Tìm bài nộp cũ
-        let submission = await Submission.findById(submissionId);
-        if (!submission) return res.status(404).json({ success: false, message: "Không tìm thấy bài nộp" });
+    const submissionId = req.params.id;
+    
+    const submission = await Submission.findById(submissionId);
+    if (!submission) return res.status(404).json({ message: "Submission not found" });
 
-        // Kiểm tra logic resubmitAllowed của Bài tập (Assignment)
-        const assignment = await Assignment.findById(submission.assignmentId);
-        if (!assignment.resubmitAllowed) {
-             return res.status(400).json({ success: false, message: "Bài tập này không cho phép nộp lại!" });
-        }
+    if (req.body.content !== undefined) {
+        submission.content = req.body.content;
+    }
+    
+    let fileUrls = submission.fileUrl;
+    if (req.files && req.files.length > 0) {
+        fileUrls = req.files.map(f => f.path);
+        submission.fileUrl = fileUrls;
+    }
+    
+    submission.grade = undefined;
+    submission.feedback = undefined;
+    submission.aiScore = undefined; 
+    submission.aiFeedback = undefined;
+    submission.aidetail = undefined;
+    submission.updatedAt = Date.now();
+    
+    await submission.save();
+    
+    const assignment = await Assignment.findById(submission.assignmentId);
 
-        // Cập nhật nội dung
-        submission.content = content;
-        
-        // Nếu có file mới thì cập nhật file (Logic này tùy bạn: Ghi đè hay Cộng dồn)
-        if (req.files && req.files.length > 0) {
-            const newFilePaths = req.files.map(f => f.path);
-            submission.fileUrl = newFilePaths; // Ví dụ: Ghi đè file cũ bằng file mới
-        }
+    console.log(`[Update] Đã cập nhật submission ${submissionId}`);
+    
+    res.json({ success: true, data: submission });
 
-        submission.updatedAt = Date.now(); // Cập nhật thời gian
-        await submission.save();
+    if (fileUrls.length > 0 && assignment?.answerKey) {
+        runAiGradingInBackground(submission._id, fileUrls, assignment.answerKey);
+    }
 
-        res.json({ success: true, data: submission });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    console.error("[Update Error]", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// --- 5. Controller: Lấy danh sách bài nộp ---
+const getSubmissionsByAssignment = async (req, res) => {
+    try {
+        const { assignmentId } = req.params;
+        const submissions = await Submission.find({ assignmentId })
+            .populate('studentId', 'name email')
+            .sort({ submittedAt: -1 });
+            
+        res.json({ success: true, data: submissions });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 
-// GET /api/submissions/assignment/:assignmentId  (teacher only: own class)
-const getSubmissionsByAssignment = async (req, res) => {
-  try {
-    const teacherId = req.user.userId;
-    const assignmentId = req.params.assignmentId;
-
-    const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) return res.status(404).json({ success: false, message: "Assignment not found" });
-
-    const classroom = await Classroom.findById(assignment.classId);
-    if (!classroom) return res.status(404).json({ success: false, message: "Class not found" });
-    if (classroom.teacher.toString() !== teacherId) return res.status(403).json({ success: false, message: "Not your class" });
-
-    const submissions = await Submission.find({ assignmentId }).populate("studentId", "name email").sort({ submittedAt: -1 });
-    res.json({ success: true, data: submissions });
-  } catch (error) {
-    console.error("getSubmissionsByAssignment error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// GET /api/submissions/mine  (student only)
+// --- 6. Controller: Lấy bài nộp của mình ---
 const getMySubmissions = async (req, res) => {
-  try {
-    const studentId = req.user.userId;
-    const subs = await Submission.find({ studentId })
-      .populate("assignmentId", "title classId")
-      .populate("gradedBy", "name") // THÊM populate cho giáo viên chấm
-      .sort({ submittedAt: -1 });
+    try {
+        const studentId = req.user.userId;
+        const submissions = await Submission.find({ studentId })
+            .populate('assignmentId', 'title deadline')
+            .sort({ submittedAt: -1 });
 
-    console.log('Found submissions:', subs.length); // Debug
-    res.json({ success: true, data: subs });
-  } catch (error) {
-    console.error("getMySubmissions error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
+        res.json({ success: true, data: submissions });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
 };
 
-// POST /api/submissions/:id/grade  (teacher only)
+// --- 7. Controller: Chấm điểm thủ công ---
 const gradeSubmission = async (req, res) => {
-  try {
-    const teacherId = req.user.userId;
-    const submissionId = req.params.id;
-    const { grade, feedback } = req.body;
+    try {
+        const submissionId = req.params.id;
+        const { grade, feedback } = req.body;
 
-    const submission = await Submission.findById(submissionId);
-    if (!submission) return res.status(404).json({ success: false, message: "Submission not found" });
+        const submission = await Submission.findByIdAndUpdate(
+            submissionId,
+            { grade, feedback },
+            { new: true }
+        );
 
-    const assignment = await Assignment.findById(submission.assignmentId);
-    const classroom = await Classroom.findById(assignment.classId);
-    if (classroom.teacher.toString() !== teacherId) return res.status(403).json({ success: false, message: "Not your class" });
+        if (!submission) return res.status(404).json({ success: false, message: "Not found" });
 
-    submission.grade = grade;
-    submission.feedback = feedback;
-    submission.gradedBy = teacherId;
-    submission.gradedAt = new Date();
-    console.log('Graded submission:', { submissionId, grade, feedback }); // Debug
-
-    await submission.save();
-    res.json({ success: true, data: submission });
-  } catch (error) {
-    console.error("gradeSubmission error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
+        res.json({ success: true, data: submission });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
 };
 
-
-export { updateSubmission, submitAssignment, getSubmissionsByAssignment, getMySubmissions, gradeSubmission, runAiGradingInBackground };
+export { 
+    submitAssignment, 
+    updateSubmission, 
+    runAiGradingInBackground, 
+    getSubmissionsByAssignment, 
+    getMySubmissions, 
+    gradeSubmission 
+};
