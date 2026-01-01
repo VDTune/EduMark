@@ -6,14 +6,15 @@ import cv2
 from ultralytics import YOLO
 import numpy as np
 
-MODEL_ABCD_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'Model_ABCD.pt')
+MODEL_ABCD_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'ABCD_start.pt')
 MODEL_STRUCT_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'cauhoi_circle.pt')
 
 MAP_ABCD = {
     0: 'A',
     1: 'B',
     2: 'C',
-    3: 'D'
+    3: 'D', 
+    4: 'objects'
 }
 
 # Ví dụ: Model Structure (0:cau_hoi, 1:circle) - Hãy sửa lại nếu model bạn train khác
@@ -21,7 +22,7 @@ MAP_STRUCT = {
     0: 'cau_hoi',
     1: 'circle'
 }
-CONF_ABCD = 0.25
+CONF_ABCD = 0.15
 CONF_STRUCT = 0.25
 
 class MCQGrader:
@@ -62,31 +63,46 @@ class MCQGrader:
             image_path, imgsz=1024, conf=CONF_STRUCT, verbose=False
         )[0]
 
-        options, circles = [], []
+        options, circles, questions = [], [], []
+        mcq_start_y = None
 
         # ==================== PARSE ====================
         for x1, y1, x2, y2, score, cls in res_abcd.boxes.data.tolist():
             cls = int(cls)
-            if cls in MAP_ABCD:
-                b = [int(x1), int(y1), int(x2), int(y2)]
+            b = [int(x1),int(y1),int(x2),int(y2)]
+
+            if MAP_ABCD.get(cls) == 'objects':   # TRẮC NGHIỆM
+                y_obj = self.center(b)[1]
+                if mcq_start_y is None or y_obj > mcq_start_y:
+                    mcq_start_y = y_obj
+                continue
+
+            if cls in [0,1,2,3]:
                 options.append({
-                    "bbox": b,
-                    "center": self.center(b),
-                    "label": MAP_ABCD[cls],
-                    "selected": False,
-                    "source": "real"
+                    'bbox':b,'center':self.center(b),
+                    'label':MAP_ABCD[cls],
+                    'selected':False,'source':'real'
                 })
 
         for x1, y1, x2, y2, score, cls in res_struct.boxes.data.tolist():
-            cls = int(cls)
-            if MAP_STRUCT.get(cls) == "circle":
-                b = [int(x1), int(y1), int(x2), int(y2)]
-                circles.append({
-                    "bbox": b,
-                    "center": self.center(b),
-                    "mapped": False
-                })
-                cv2.rectangle(img, (b[0], b[1]), (b[2], b[3]), (0, 0, 255), 2)
+            b=[int(x1),int(y1),int(x2),int(y2)]
+            if MAP_STRUCT[int(cls)]=='circle':
+                circles.append({'bbox':b,'center':self.center(b),'mapped':False})
+            else:
+                questions.append({'bbox':b,'center':self.center(b)})
+
+        if mcq_start_y is None:
+            if circles:
+                mcq_start_y = min(c['center'][1] for c in circles)
+                print("⚠️ Object miss → fallback dùng circle")
+            elif questions:
+                mcq_start_y = min(q['center'][1] for q in questions)
+                print("⚠️ Object + circle miss → fallback dùng cau_hoi")
+            else:
+                mcq_start_y = 0
+                print("❌ Không detect được object / circle / cau_hoi")
+        
+        circles = [c for c in circles if c['center'][1] >= mcq_start_y]
 
         # =====================================================
         # STEP 1 — MAP CIRCLE ↔ OPTION (MAX IOU)

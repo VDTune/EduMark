@@ -19,6 +19,17 @@ const AssignmentDetail = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // const token = localStorage.getItem('token')
+        // if (!token) {
+        //   alert('Vui lòng đăng nhập để tiếp tục.')
+        //   navigate('/login')
+        //   return
+        // }
+        // const config = {
+        //     headers: {
+        //         Authorization: `Bearer ${token}` // "Bearer" + dấu cách + token
+        //     }
+        // };
         setLoading(true)
         const [assRes, subRes] = await Promise.all([
              axios.get(`/api/assignments/${assignmentId}`),
@@ -42,8 +53,11 @@ const AssignmentDetail = () => {
         }
       } catch (err) {
         console.error('Error fetching assignment:', err)
-        // alert('Không thể tải thông tin bài tập: ' + (err.response?.data?.message || err.message))
-        // navigate(-1)
+        if (err.response && err.response.status === 401) {
+            alert("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
+            localStorage.removeItem('token');
+            navigate('/login'); 
+        }
       } finally {
         setLoading(false)
       }
@@ -68,7 +82,9 @@ const AssignmentDetail = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log('1. Dẫ bấm nút submit nộp bài, hàm handle submit đã được gọi')
     if (!content.trim() && files.length === 0) {
+      console.log('2. Kiểm tra nội dung và file: cả hai đều trống, hiển thị alert')
       alert('Vui lòng nhập nội dung hoặc chọn file!')
       return
     }
@@ -84,19 +100,22 @@ const AssignmentDetail = () => {
     }
 
     try {
+      // const token = localStorage.getItem('token')
+      // const config = {
+      //   headers: {
+      //     Authorization: `Bearer ${token}`
+      //   }
+      // }
+      
       let res;
   
-      // LOGIC QUAN TRỌNG Ở ĐÂY:
       if (mySubmission) {
+        console.log('3. Đã có bài nộp trước đó, thực hiện cập nhật (PUT)')
         // --- TRƯỜNG HỢP NỘP LẠI (UPDATE) ---
-        // Gọi API PUT và gửi kèm ID của bài nộp cũ
-        res = await axios.put(`/api/submissions/${mySubmission._id}`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        })
+        res = await axios.put(`/api/submissions/${mySubmission._id}`, formData)
       } else {
-          res = await axios.post('/api/submissions/submit', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
+        console.log('4. Chưa có bài nộp, thực hiện nộp mới (POST)')
+          res = await axios.post('/api/submissions/submit', formData)
       }
       
       if (res.data.success) {
@@ -336,7 +355,7 @@ const AssignmentDetail = () => {
                       )}
                     </div>
 
-                    <div classname = "flex gap-2">
+                    <div className = "flex gap-2">
                       {mySubmission && (
                         <button
                             type="button"
@@ -348,6 +367,7 @@ const AssignmentDetail = () => {
 
                       <button 
                         type="submit"
+                        // onChange={() => handleSubmit()}
                         disabled={ submitted || submitting || (isOverdue && !assignment.allowLate)}
                         className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                           submitted

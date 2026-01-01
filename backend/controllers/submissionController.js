@@ -193,16 +193,23 @@ const updateSubmission = async (req, res) => {
         // Cập nhật nội dung
         submission.content = content;
         
-        // Nếu có file mới thì cập nhật file (Logic này tùy bạn: Ghi đè hay Cộng dồn)
+        // Nếu có file mới thì cập nhật file
         if (req.files && req.files.length > 0) {
-            const newFilePaths = req.files.map(f => f.path);
-            submission.fileUrl = newFilePaths; // Ví dụ: Ghi đè file cũ bằng file mới
+            const newFilePaths = req.files.map(f => `./uploads/${f.filename}`);
+            submission.fileUrl = newFilePaths; // Ghi đè file cũ bằng file mới
         }
+        submission.aiScore = null; // Reset điểm AI
+        submission.aiFeedback = null;
+        submission.aidetail = [];
 
         submission.updatedAt = Date.now(); // Cập nhật thời gian
         await submission.save();
-
         res.json({ success: true, data: submission });
+        
+        if (submission.fileUrl && submission.fileUrl.length > 0 && assignment.answerKey) {
+            console.log(`[Update] Đang kích hoạt chấm lại cho submission: ${submissionId}`);
+            runAiGradingInBackground(submission._id, submission.fileUrl, assignment.answerKey);
+        }
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

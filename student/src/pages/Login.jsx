@@ -36,7 +36,7 @@ const Login = () => {
           </div>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full p-3 border rounded-lg" required />
           <div>
-            <div className="flex justify-between mb-1"><label className="text-sm">Mật khẩu</label><Link to="/forgot-password" class="text-sm text-blue-600">Quên mật khẩu?</Link></div>
+            <div className="flex justify-between mb-1"><label className="text-sm">Mật khẩu</label><Link to="/forgot-password" className="text-sm text-blue-600">Quên mật khẩu?</Link></div>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu" className="w-full p-3 border rounded-lg" required />
           </div>
           <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">
