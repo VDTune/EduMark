@@ -1,19 +1,21 @@
+import 'dotenv/config';
 import express from 'express';
-import dotenv from 'dotenv';
-import path from 'path';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+
 import { connectDB } from './config/db.js';
 import userRoutes from './routes/userRoute.js';
 import classroomRoutes from './routes/classroomRoute.js';
 import assignmentRoutes from './routes/assignmentRoute.js';
 import submissionRoutes from './routes/submissionRoute.js';
-import fs from 'fs';
 
-dotenv.config();
+
 connectDB();
 
 const app = express();
 app.use(cors());
+app.options("*", cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

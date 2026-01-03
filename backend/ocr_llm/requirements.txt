@@ -6,3 +6,5 @@ opencv-python
 python-dotenv
 ultralytics
 pillow
+axios
+cloudinary
