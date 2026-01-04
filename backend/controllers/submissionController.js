@@ -4,6 +4,9 @@ import Assignment from "../models/assignmentModel.js";
 import Classroom from "../models/classroomModel.js";
 import { spawn } from "child_process";
 import path from "path";
+import { uploadImageToCloudinary } from '../utils/cloudinaryUpload.js'
+import { ensureLocalImage } from '../utils/ensureLocalImage.js'
+import fs from 'fs'
 
 /**
  * Chạy quy trình chấm điểm AI trong nền.
@@ -14,8 +17,24 @@ import path from "path";
 const runAiGradingInBackground = async (submissionId, fileUrls, answerKey) => {
   console.log(`[AI Background] Bắt đầu chấm điểm cho submission: ${submissionId}`);
   try {
-    // Gọi script Python và chờ kết quả (logic này được giữ nguyên từ trước)
-    const aiGradingResult = await executePythonScript(fileUrls, answerKey);
+    // 1. Đảm bảo ảnh ở local cho AI (URL → temp nếu cần)
+    const localImagePaths = []
+
+    for (const img of fileUrls) {
+      const localPath = await ensureLocalImage(img)
+      localImagePaths.push(localPath)
+    }
+
+    // 2. Gọi AI với file local (KHÔNG SỬA AI)
+    const aiGradingResult = await executePythonScript(localImagePaths, answerKey);
+
+    // 3. Xóa file temp sau khi AI chạy xong
+    for (const p of localImagePaths) {
+      if (p.includes(`${path.sep}uploads${path.sep}temp${path.sep}`)) {
+        fs.unlink(p, () => {})
+      }
+    }
+
 
     // Cập nhật bài nộp với kết quả từ AI
     if (aiGradingResult && Object.keys(aiGradingResult).length > 0) {
@@ -60,9 +79,34 @@ const submitAssignment = async (req, res) => {
     if (!classroom.students.map(s => s.toString()).includes(studentId)) {
       return res.status(403).json({ success: false, message: "You are not in this class" });
     }
-    const uploadedFileUrls = files.map(f => `./uploads/${f.filename}`);
-    const fileUrl = uploadedFileUrls.length > 0 ? uploadedFileUrls : (fileUrlFromBody ? [fileUrlFromBody] : []);
-    console.log('Files saved:', fileUrl.length > 0 ? { count: fileUrl.length, paths: fileUrl } : 'No file');
+    let fileUrl = []
+
+    if (files && files.length > 0) {
+      const uploadedUrls = []
+
+      for (const file of files) {
+        // 1. Upload ảnh lên Cloudinary
+        const { url } = await uploadImageToCloudinary(
+          file.path,
+          process.env.CLOUDINARY_FOLDER_RAW
+        )
+
+        uploadedUrls.push(url)
+
+        // 2. Xóa file local
+        fs.unlinkSync(file.path)
+      }
+
+      fileUrl = uploadedUrls
+    } else if (fileUrlFromBody) {
+      // fallback nếu frontend gửi sẵn URL (hiếm)
+      fileUrl = [fileUrlFromBody]
+    }
+
+    console.log(
+      '[Submit] Files:',
+      fileUrl.length > 0 ? { count: fileUrl.length, urls: fileUrl } : 'No file'
+    )
 
     // 1. Lưu bài nộp vào database trước mà không cần chờ AI
     const submission = new Submission({
@@ -157,7 +201,7 @@ const executePythonScript = (fileUrls, answerKey) => {
           try {
             const jsonMatch = stdoutData.match(/\{[\s\S]*\}/);
             if (jsonMatch) return resolve(JSON.parse(jsonMatch[0]));
-          } catch (e) {}
+          } catch (e) { }
           return resolve({});
         }
 
@@ -177,42 +221,58 @@ const executePythonScript = (fileUrls, answerKey) => {
 // PUT /api/submissions/:id (student only)
 const updateSubmission = async (req, res) => {
   try {
-        const submissionId = req.params.id;
-        const { content } = req.body;
-        
-        // Tìm bài nộp cũ
-        let submission = await Submission.findById(submissionId);
-        if (!submission) return res.status(404).json({ success: false, message: "Không tìm thấy bài nộp" });
+    const submissionId = req.params.id;
+    const { content } = req.body;
 
-        // Kiểm tra logic resubmitAllowed của Bài tập (Assignment)
-        const assignment = await Assignment.findById(submission.assignmentId);
-        if (!assignment.resubmitAllowed) {
-             return res.status(400).json({ success: false, message: "Bài tập này không cho phép nộp lại!" });
-        }
+    // Tìm bài nộp cũ
+    let submission = await Submission.findById(submissionId);
+    if (!submission) return res.status(404).json({ success: false, message: "Không tìm thấy bài nộp" });
 
-        // Cập nhật nội dung
-        submission.content = content;
-        
-        // Nếu có file mới thì cập nhật file
-        if (req.files && req.files.length > 0) {
-            const newFilePaths = req.files.map(f => `./uploads/${f.filename}`);
-            submission.fileUrl = newFilePaths; // Ghi đè file cũ bằng file mới
-        }
-        submission.aiScore = null; // Reset điểm AI
-        submission.aiFeedback = null;
-        submission.aidetail = [];
-
-        submission.updatedAt = Date.now(); // Cập nhật thời gian
-        await submission.save();
-        res.json({ success: true, data: submission });
-        
-        if (submission.fileUrl && submission.fileUrl.length > 0 && assignment.answerKey) {
-            console.log(`[Update] Đang kích hoạt chấm lại cho submission: ${submissionId}`);
-            runAiGradingInBackground(submission._id, submission.fileUrl, assignment.answerKey);
-        }
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+    // Kiểm tra logic resubmitAllowed của Bài tập (Assignment)
+    const assignment = await Assignment.findById(submission.assignmentId);
+    if (!assignment.resubmitAllowed) {
+      return res.status(400).json({ success: false, message: "Bài tập này không cho phép nộp lại!" });
     }
+
+    // Cập nhật nội dung
+    submission.content = content;
+
+    // Nếu có file mới thì cập nhật file
+    if (req.files && req.files.length > 0) {
+      const uploadedUrls = []
+
+      for (const file of req.files) {
+        // 1. Upload ảnh lên Cloudinary
+        const { url } = await uploadImageToCloudinary(
+          file.path,
+          process.env.CLOUDINARY_FOLDER_RAW
+        )
+
+        uploadedUrls.push(url)
+
+        // 2. Xóa file local ngay sau khi upload
+        fs.unlinkSync(file.path)
+      }
+
+      // 3. Lưu URL Cloudinary vào submission
+      submission.fileUrl = uploadedUrls
+    }
+
+    submission.aiScore = null; // Reset điểm AI
+    submission.aiFeedback = null;
+    submission.aidetail = [];
+
+    submission.updatedAt = Date.now(); // Cập nhật thời gian
+    await submission.save();
+    res.json({ success: true, data: submission });
+
+    if (submission.fileUrl && submission.fileUrl.length > 0 && assignment.answerKey) {
+      console.log(`[Update] Đang kích hoạt chấm lại cho submission: ${submissionId}`);
+      runAiGradingInBackground(submission._id, submission.fileUrl, assignment.answerKey);
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 // GET /api/submissions/assignment/:assignmentId  (teacher only: own class)

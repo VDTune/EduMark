@@ -1,116 +1,179 @@
 import fs from "fs";
 import path from "path";
 import unzipper from "unzipper";
-import Submission from "../models/submissionModel.js";
+
 import Assignment from "../models/assignmentModel.js";
+import Submission from "../models/submissionModel.js";
 import User from "../models/userModel.js";
-import { runAiGradingInBackground } from "../controllers/submissionController.js";
 
+import { uploadImageToCloudinary } from "../utils/cloudinaryUpload.js";
+import { runAiGradingInBackground } from "./submissionController.js";
 
+/**
+ * ZIP structure (GIỮ NGUYÊN):
+ * Bai_thi_Toan_4a22.zip
+ * └── Bai_thi_Toan_4a22/
+ *     ├── Bùi Văn Thành/
+ *     │   ├── IMG_001.jpg
+ *     │   └── IMG_002.jpg
+ *     ├── Đặng Ánh Nhung/
+ *     │   └── IMG_001.jpg
+ */
+
+const normalize = (str) =>
+  str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 
 export const uploadZipController = async (req, res) => {
-  try {
-    const { assignmentId } = req.body;
-    const zipPath = req.file.path;
-    const createdSubmissions = [];
+  let extractFolder = null;
 
-    if (req.user.role !== "teacher") {
-      return res.status(403).json({ success: false, message: "Only teachers can upload ZIP" });
-    }
+  try {
+    const assignmentId = req.body.assignmentId || req.params.assignmentId;
+
     if (!assignmentId) {
       return res.status(400).json({ message: "Thiếu assignmentId" });
     }
 
-    const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) {
-      return res.status(404).json({ success: false, message: "Assignment not found" });
+    if (!req.file) {
+      return res.status(400).json({ message: "Không có file ZIP" });
     }
 
-    // Folder đích (dùng tên ZIP gốc)
-    const parentFolderName = req.file.originalname.replace(/\.(zip|rar)$/i, "");
-    // Folder đích vật lý: uploads/BaiTapLop4A
-    const extractFolder = path.join("./uploads", parentFolderName);
+    const assignment = await Assignment.findById(assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ message: "Không tìm thấy assignment" });
+    }
 
-    // Tạo folder
-    if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
-    if (!fs.existsSync(extractFolder)) fs.mkdirSync(extractFolder);
+    // 1️⃣ Giải nén ZIP
+    const zipPath = req.file.path;
+    const zipName = path.basename(zipPath, path.extname(zipPath));
+    extractFolder = path.join(process.cwd(), "uploads", zipName);
 
-    //  Giải nén ZIP
-    await fs.createReadStream(zipPath)
+    fs.mkdirSync(extractFolder, { recursive: true });
+
+    await fs
+      .createReadStream(zipPath)
       .pipe(unzipper.Extract({ path: extractFolder }))
       .promise();
 
-    //  Xóa file ZIP tạm sau giải nén
+    // Xóa file zip NGAY sau khi giải nén
     fs.unlinkSync(zipPath);
 
-    // Kiểm tra nếu giải nén ra 1 thư mục duy nhất, thì di chuyển nội dung lên 1 cấp
-    let items = fs.readdirSync(extractFolder);
-    if (items.length === 1) {
-      const singleFolder = path.join(extractFolder, items[0]);
-      if (fs.statSync(singleFolder).isDirectory()) {
-        // Di chuyển nội dung của thư mục duy nhất lên cấp cha
-        const innerItems = fs.readdirSync(singleFolder);
-        for (const item of innerItems) {
-          const srcPath = path.join(singleFolder, item);
-          const destPath = path.join(extractFolder, item);
-          fs.renameSync(srcPath, destPath);
-        }
-        // Xóa thư mục trống
-        fs.rmdirSync(singleFolder);
-        console.log(`Đã loại bỏ thư mục wrapper: ${items[0]}`);
-      }
+    // 2️⃣ Nếu ZIP có 1 folder bọc ngoài
+    const rootDirs = fs
+      .readdirSync(extractFolder)
+      .filter(f => fs.statSync(path.join(extractFolder, f)).isDirectory());
+
+    let baseFolder = extractFolder;
+    if (rootDirs.length === 1) {
+      baseFolder = path.join(extractFolder, rootDirs[0]);
     }
 
-    // Quét folder con (mỗi folder = 1 học sinh)
-    const studentFolders = fs.readdirSync(extractFolder);
+    // 3️⃣ Lấy danh sách học sinh trong DB (1 lớp ~ rất ít → OK)
+    const students = await User.find({ role: "student" });
+
+    const createdSubmissions = [];
+
+    // 4️⃣ Duyệt từng folder học sinh (THEO TÊN)
+    const studentFolders = fs
+      .readdirSync(baseFolder)
+      .filter(f => fs.statSync(path.join(baseFolder, f)).isDirectory());
 
     for (const folderName of studentFolders) {
-      const fullPath = path.join(extractFolder, folderName);
+      const studentFolderPath = path.join(baseFolder, folderName);
 
-      if (!fs.statSync(fullPath).isDirectory()) continue;
-
-      // Tìm student theo tên folder
-      const student = await User.findOne({ name: folderName, role: "student" });
+      // 🔑 MAP THEO TÊN (SO SÁNH MỀM)
+      const student = students.find(
+        s => normalize(s.name) === normalize(folderName)
+      );
 
       if (!student) {
-        console.log("Không tìm thấy học sinh:", folderName);
+        console.warn(`⚠️ Không tìm thấy học sinh theo tên: ${folderName}`);
         continue;
       }
 
-      const files = fs.readdirSync(fullPath)
-        .filter(f => /\.(jpg|jpeg|png)$/i.test(f))
-        .map(f => `./uploads/${parentFolderName}/${folderName}/${f}`);
-      if (files.length === 0) continue;
-      // Tạo submission
+      const imageFiles = fs
+        .readdirSync(studentFolderPath)
+        .filter(f => /\.(jpg|jpeg|png)$/i.test(f));
+
+      if (imageFiles.length === 0) continue;
+
+      const uploadedUrls = [];
+
+      // 5️⃣ Upload ảnh lên Cloudinary → TẠO FOLDER THEO TÊN HỌC SINH
+      for (const img of imageFiles) {
+        const imgPath = path.join(studentFolderPath, img);
+
+        const cloudinaryFolder = `${process.env.CLOUDINARY_FOLDER_RAW}/${folderName}`;
+
+        const { url } = await uploadImageToCloudinary(
+          imgPath,
+          cloudinaryFolder
+        );
+
+        uploadedUrls.push(url);
+
+        // Xóa ảnh local sau upload
+        fs.unlinkSync(imgPath);
+      }
+
+      // 6️⃣ Tạo submission
       const submission = await Submission.create({
         assignmentId,
         studentId: student._id,
-        content: "Nộp bài qua Zip do giáo viên upload",
-        fileUrl: files,
-        submittedAt: new Date()
+        content: "Nộp bài qua ZIP do giáo viên upload",
+        fileUrl: uploadedUrls,
+        submittedAt: new Date(),
       });
-      createdSubmissions.push({submission, files });
+
+      createdSubmissions.push({
+        submission,
+        files: uploadedUrls,
+      });
     }
 
+    // 7️⃣ Trả response cho frontend
     res.json({
       success: true,
-      message: 'Đã gả nén & tạo bài nộp cho học sinh từ file ZIP',
-      total: createdSubmissions.length
+      message: "Đã xử lý ZIP và tạo bài nộp",
+      total: createdSubmissions.length,
     });
 
+    // 8️⃣ Chạy AI ở background (KHÔNG BLOCK)
     if (assignment.answerKey) {
       for (const item of createdSubmissions) {
         runAiGradingInBackground(
           item.submission._id,
           item.files,
           assignment.answerKey
-        ).catch(err => console.error(`Lỗi chấm background submission ${item.submission._id}:`, err));
+        ).catch(err =>
+          console.error(
+            `❌ Lỗi AI submission ${item.submission._id}:`,
+            err
+          )
+        );
+      }
+    }
+  } catch (err) {
+    console.error("❌ Upload ZIP error:", err);
+    return res.status(500).json({ message: "Lỗi xử lý ZIP" });
+  } finally {
+    // 9️⃣ Dọn folder giải nén
+    if (extractFolder && fs.existsSync(extractFolder)) {
+      try {
+        fs.rmSync(extractFolder, { recursive: true, force: true });
+        console.log(`🧹 Đã dọn folder: ${extractFolder}`);
+      } catch (e) {
+        console.warn(`Không thể dọn folder ${extractFolder}:`, e.message);
       }
     }
 
-  } catch (err) {
-    console.error("Upload ZIP error:", err);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    res.status(500).json({ message: "Lỗi xử lý ZIP" });
+    // 10️⃣ Dọn ZIP phòng trường hợp lỗi
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
   }
 };
