@@ -115,6 +115,41 @@ const SubmissionDetail = () => {
     )
   }
 
+  const renderAIDetail = (data) => {
+    if (!data) return <em className="text-gray-400">Chưa có nhận xét</em>;
+
+    let parsedData = data;
+
+    // Nếu dữ liệu đang là chuỗi JSON, parse nó ra
+    if (typeof data === 'string') {
+      try {
+        parsedData = JSON.parse(data);
+      } catch (e) {
+        return data; // Nếu không parse được thì hiển thị text gốc
+      }
+    }
+
+    if (Array.isArray(parsedData) && parsedData.length > 0) {
+      parsedData = parsedData[0];
+    }
+
+    if (typeof parsedData !== 'object' || parsedData === null) {
+        return parsedData;
+    }
+
+    // Duyệt qua từng key (Ví dụ: "Phần I: Trắc nghiệm", "Bài 1...")
+    return Object.entries(parsedData).map(([sectionName, content], index) => (
+      <div key={index} className="mb-3 border-b border-gray-100 pb-2 last:border-0">
+        <h5 className="font-bold text-gray-800 text-sm">{sectionName}</h5>
+        
+        <div className="ml-2 text-sm">
+          <p><span className="font-medium text-gray-600">Điểm:</span> {content.score}</p>
+          <p><span className="font-medium text-gray-600">Nhận xét:</span> {content.comment}</p>
+        </div>
+      </div>
+    ));
+  };
+
   return (
     <div className="min-h-screen bg-gray-10 pb-12">
       {/* Navigation */}
@@ -254,7 +289,8 @@ const SubmissionDetail = () => {
               <div className="space-y-2">
                 <span className="text-sm font-bold text-gray-700 uppercase">Nhận xét chi tiết:</span>
                 <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-48 overflow-y-auto">
-                    {submission.aiFeedback ? submission.aiFeedback : <em className="text-gray-400">Chưa có dữ liệu nhận xét từ AI...</em>}
+                    {/* {submission.aidetail ? submission.aidetail : <em className="text-gray-400">Chưa có dữ liệu nhận xét từ AI...</em>} */}
+                    {renderAIDetail(submission.aidetail)}
                 </div>
               </div>
               {submission.aiScore !== null && submission.aiScore !== undefined && (
