@@ -19,17 +19,6 @@ const AssignmentDetail = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // const token = localStorage.getItem('token')
-        // if (!token) {
-        //   alert('Vui lòng đăng nhập để tiếp tục.')
-        //   navigate('/login')
-        //   return
-        // }
-        // const config = {
-        //     headers: {
-        //         Authorization: `Bearer ${token}` // "Bearer" + dấu cách + token
-        //     }
-        // };
         setLoading(true)
         const [assRes, subRes] = await Promise.all([
              axios.get(`/api/assignments/${assignmentId}`),
@@ -82,9 +71,7 @@ const AssignmentDetail = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('1. Dẫ bấm nút submit nộp bài, hàm handle submit đã được gọi')
     if (!content.trim() && files.length === 0) {
-      console.log('2. Kiểm tra nội dung và file: cả hai đều trống, hiển thị alert')
       alert('Vui lòng nhập nội dung hoặc chọn file!')
       return
     }
@@ -99,22 +86,13 @@ const AssignmentDetail = () => {
       });
     }
 
-    try {
-      // const token = localStorage.getItem('token')
-      // const config = {
-      //   headers: {
-      //     Authorization: `Bearer ${token}`
-      //   }
-      // }
-      
+    try {      
       let res;
   
       if (mySubmission) {
-        console.log('3. Đã có bài nộp trước đó, thực hiện cập nhật (PUT)')
         // --- TRƯỜNG HỢP NỘP LẠI (UPDATE) ---
         res = await axios.put(`/api/submissions/${mySubmission._id}`, formData)
       } else {
-        console.log('4. Chưa có bài nộp, thực hiện nộp mới (POST)')
           res = await axios.post('/api/submissions/submit', formData)
       }
       
@@ -123,10 +101,6 @@ const AssignmentDetail = () => {
         setMySubmission(res.data.data) // Lưu bài đã nộp vào state
         setFiles([])
         setIsEditing(false)
-        // if (fileInputRef.current) {
-        //     fileInputRef.current.value = '' // Reset text trên input file
-        // }
-        // setSubmitted(true)
       } else {
         throw new Error(res.data.message || 'Nộp bài thất bại')
       }
@@ -179,7 +153,9 @@ const AssignmentDetail = () => {
 
   const isOverdue = assignment.deadline && new Date(assignment.deadline) < new Date()
 
-  const canEdit = !mySubmission || (assignment.resubmitAllowed !== false && (!isOverdue || assignment.allowLate));
+  const isGraded = mySubmission?.grade !== null && mySubmission.grade !== undefined;
+
+  const canEdit = !isGraded && (!mySubmission || (assignment.resubmitAllowed !== false && (!isOverdue || assignment.allowLate)));
 
   return (
     <div className="min-h-screen bg-gray-10">
@@ -281,6 +257,16 @@ const AssignmentDetail = () => {
                           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           <h3 className="text-lg font-bold">Bạn đã nộp bài</h3>
                       </div>
+
+                      {isGraded && (
+                        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                          <p className="text-sm text-gray-600 uppercase font-bold">Điểm số</p>
+                          <p className="text-3xl font-bold text-yellow-600">{mySubmission.grade}</p>
+                          {mySubmission.feedback && (
+                            <p className="text-sm text-gray-600 mt-2 italic">"{mySubmission.feedback}"</p>
+                          )}
+                        </div>
+                      )}
                       
                       <div className="space-y-4 mb-6">
                           <div>
@@ -368,16 +354,16 @@ const AssignmentDetail = () => {
                       <button 
                         type="submit"
                         // onChange={() => handleSubmit()}
-                        disabled={ submitted || submitting || (isOverdue && !assignment.allowLate)}
+                        disabled={ submitted || submitting || (isOverdue && !assignment.allowLate) || isGraded}
                         className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                          submitted
-                            ? 'bg-green-500 text-white cursor-default':
+                          submitted || isGraded
+                            ? 'bg-gray-500 text-white cursor-default':
                             submitting || (isOverdue && !assignment.allowLate)
                               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                               : 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                         }`}
                       >
-                        {submitted ? (
+                        {isGraded ? 'Đã chấm điểm' : submitted ? (
                           'Đã nộp'
                         ) : submitting ? (
                           <span className="flex items-center justify-center">
