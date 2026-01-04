@@ -124,10 +124,26 @@ const Submissions = () => {
   }, [submissions]);
 
   const handleExportExcel = () => {
-    if (!allStudents || allStudents.length === 0) {
-      alert("Không tìm thấy danh sách học sinh để xuất!");
-      return;
-    }
+    // const studentToExport = [];
+    // if (!allStudents || allStudents.length > 0) {
+    //     studentToExport.push(allStudents);      
+    // } else if (submissions && submissions.length > 0) {
+    //   const uniqueStudents = [];
+    //   submissions.forEach(sub => {
+    //     if (sub.studentId) {
+    //       const sid = sub.studentId?._id || sub.studentId;
+    //       if (!uniqueStudents[sid]) {
+    //         uniqueStudents[sid] = {
+    //             _id: sid,
+    //             name: sub.studentId.name || "Không tên",
+    //             email: sub.studentId.email || "Không email",
+    //             studentId: sub.studentId.studentId || "" // Mã HS nếu có
+    //         };
+    //       }
+    //     }
+    //   });
+    //   studentToExport.push(Object.values(uniqueStudents));
+    // }
 
     const assignmentTitle = assignmentInfo?.title || "Bài tập";
     const className = assignmentInfo?.classId?.name || "Lớp học";
@@ -432,7 +448,8 @@ const Submissions = () => {
                         
                         {/* 1. Biểu đồ tròn */}
                         <div className="h-64 w-full mb-6">
-                            <ResponsiveContainer width="100%" height="100%">
+                          {statistics.chartData && statistics.chartData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
                                 <PieChart>
                                     <Pie
                                         data={statistics.chartData}
@@ -451,6 +468,11 @@ const Submissions = () => {
                                     <Legend verticalAlign="bottom" height={36}/>
                                 </PieChart>
                             </ResponsiveContainer>
+                          ) : ( 
+                            <div className='flex items-center justify-center h-full text-gray-500'>
+                              Đang tải biểu đồ
+                            </div>
+                          )}
                         </div>
 
                         {/* 2. Bảng thống kê chi tiết (Yêu cầu mới) */}

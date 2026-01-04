@@ -19,30 +19,30 @@ HƯỚNG DẪN CHẤM (THỰC HIỆN CÁC BƯỚC SAU):
   Đọc kỹ BÀI LÀM CỦA HỌC SINH. Cố gắng suy luận ý của học sinh ngay cả khi OCR có thể nhận dạng sai một vài chữ.
   Xác định cấu trúc bài làm: Đâu là phần Trắc nghiệm, đâu là phần Tự luận.
   Dữ liệu `recognized_text` ở trên bao gồm 2 phần:
-     + Phần 1: "--- KẾT QUẢ CHẤM TRẮC NGHIỆM (YOLO DETECTED) ---" -> Đây là các đáp án (A, B, C, D) mà hệ thống Computer Vision đã phát hiện được.
+     + Phần 1: "--- KẾT QUẢ CHẤM TRẮC NGHIỆM (YOLO DETECTED) ---" -> Đây là các đáp án (A, B, C, D) mà hệ thống đã phát hiện được.
      + Phần 2: "=== OCR RAW TEXT ===" -> Đây là văn bản thô quét từ ảnh (dùng để chấm tự luận).
 2.  *So sánh và Đánh giá nội dung với Đáp án:* 
   
   Đối chiếu từng phần (cả TỰ LUẬN VÀ TRẮC NGHIỆM) trình bày trong bài làm của học sinh với ĐÁP ÁN HOẶC BAREM ĐIỂM chi tiết.
   Trong trường hợp chỉ có đáp án và tổng điểm của câu, cố gắng cần tự phân bổ điểm thành phần một cách hợp lý và công bằng.
 
-  Nguyên tắc Chấm điểm TRẮC NGHIỆM (nếu có):
-    **Nguồn dữ liệu:**Sử dụng thông tin trong phần "--- KẾT QUẢ CHẤM TRẮC NGHIỆM (YOLO DETECTED) ---" và Hình ảnh ảnh bài làm Phần trắc nghiệm để chốt được kết qyar đã khoanh.
+  Nguyên tắc Chấm điểm TRẮC NGHIỆM (nếu có phần TRẮC NGHIỆM):
+    **Nguồn dữ liệu:**Sử dụng thông tin trong phần "--- KẾT QUẢ CHẤM TRẮC NGHIỆM (YOLO DETECTED) ---" để chốt được kết quả đã khoanh.
     - **Cơ chế:**
-      + Lấy đáp án học sinh chọn từ phần YOLO + Hình ảnh (Ví dụ: "Câu 1: A").
-      + So sánh với ĐÁP ÁN CHUẨN trong Barem.
+      + Lấy đáp án học sinh chọn từ phần YOLO (dùng Hình ảnh làm ngữ cảnh) (Ví dụ: "Câu 1: A").
+      + So sánh với ĐÁP ÁN CHUẨN trong Barem (biến rubric).
       + Nếu khớp -> Cho điểm tối đa của câu. Nếu lệch -> 0 điểm.
     - **Xử lý ngoại lệ:**
-      + Nếu không tìm thấy câu trả lời của học sinh trong phần YOLO (ví dụ: học sinh bỏ trống, hoặc hệ thống không phát hiện được) -> Thì xem két quả dựa trên ảnh bài làm của phần Trắc Nghiệm.
+      + Nếu không tìm thấy câu trả lời của học sinh trong phần YOLO (ví dụ: học sinh bỏ trống, hoặc hệ thống không phát hiện được) -> Thì xem két quả câu đó dựa trên ảnh bài làm của phần Trắc Nghiệm.
       + Nếu có nhiều hơn một đáp án được khoanh cho cùng một câu -> Chấm 0 điểm.
  
- Nguyên tắc Chấm điểm Tự luận (DỰA TRÊN ẢNH VÀ OCR  ):
+ Nguyên tắc Chấm điểm Tự luận (DỰA TRÊN VĂN BẢN OCR VÀ HÌNH ẢNH BÀI LÀM):
   - **Nguồn dữ liệu:** Sử dụng phần "=== OCR RAW TEXT ===" và quan sát Hình ảnh (nếu được cung cấp qua kênh hình ảnh).
   - **Ý đúng:** Chấm theo ý. Nếu học sinh làm cách khác đáp án nhưng kết quả và logic đúng, vẫn cho điểm tối đa.
   - **Lỗi sai:** 
-    + Sai kết quả tính toán nhưng phương pháp đúng: Trừ điểm kết quả, vẫn cho điểm phương pháp (nếu barem cho phép).
-    + Sai dây chuyền: Nếu bước 1 sai dẫn đến bước 2 sai, không tính điểm bước 2 (trừ khi barem có quy định khác).
-    + Sai phương pháp hoặc các bước trung gian sai: Trừ điểm theo barem (nếu có) hoặc cho sai.
+    + Sai kết quả tính toán nhưng phương pháp đúng: Trừ điểm kết quả, vẫn cho điểm phương pháp (nếu barem (RUBRIC) có nhắc đến và có quy định điểm).
+    + Sai dây chuyền: Nếu bước 1 sai dẫn đến bước 2 sai -> thì tính là sai (trừ khi barem có quy định khác).
+    + Sai phương pháp hoặc các bước trung gian sai: Trừ điểm theo barem (nếu có) hoặc cho câu đó điểm 0.
   - **Quy tắc chống ảo giác (QUAN TRỌNG):**
      + Nếu OCR Text của một câu hỏi chỉ chứa lại nội dung đề bài mà KHÔNG CÓ bài giải của học sinh -> Chấm 0 điểm (Học sinh bỏ trắng).
      + Tuyệt đối KHÔNG tự ý lấy con số trong Barem để gán cho học sinh nếu học sinh không viết ra.
