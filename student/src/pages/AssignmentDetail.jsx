@@ -153,7 +153,7 @@ const AssignmentDetail = () => {
 
   const isOverdue = assignment.deadline && new Date(assignment.deadline) < new Date()
 
-  const isGraded = mySubmission?.grade !== null && mySubmission.grade !== undefined;
+  const isGraded = mySubmission?.grade !== null && mySubmission?.grade !== undefined;
 
   const canEdit = !isGraded && (!mySubmission || (assignment.resubmitAllowed !== false && (!isOverdue || assignment.allowLate)));
 

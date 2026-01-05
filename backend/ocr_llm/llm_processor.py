@@ -119,7 +119,7 @@ def grade_submission_with_llm(image_paths: list, rubric: str, final_context_text
         # Cấu hình để yêu cầu LLM trả về đúng định dạng JSON
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            temperature=0.2 # Giảm sáng tạo để kết quả ổn định
+            temperature=0.1# Giảm sáng tạo để kết quả ổn định
         )
 
         print("Sending score request to Google API...")

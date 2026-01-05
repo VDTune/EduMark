@@ -9,16 +9,6 @@ import User from "../models/userModel.js";
 import { uploadImageToCloudinary } from "../utils/cloudinaryUpload.js";
 import { runAiGradingInBackground } from "./submissionController.js";
 
-/**
- * ZIP structure (GIỮ NGUYÊN):
- * Bai_thi_Toan_4a22.zip
- * └── Bai_thi_Toan_4a22/
- *     ├── Bùi Văn Thành/
- *     │   ├── IMG_001.jpg
- *     │   └── IMG_002.jpg
- *     ├── Đặng Ánh Nhung/
- *     │   └── IMG_001.jpg
- */
 
 const normalize = (str) =>
   str

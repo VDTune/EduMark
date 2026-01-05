@@ -48,7 +48,9 @@ class MCQGrader:
         return (x2-x1)*(y2-y1)
 
     def process_image(self, image_path: str, save_debug: bool = False) -> Dict[str, Any]:
-        img = cv2.imread(image_path)
+        # Sử dụng imdecode để đọc được đường dẫn tiếng Việt/Unicode trên Windows
+        img_array = np.fromfile(image_path, np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
         if img is None:
             return {}
 
