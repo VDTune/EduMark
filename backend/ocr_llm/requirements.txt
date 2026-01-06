@@ -3,17 +3,16 @@ python-dotenv
 requests
 numpy
 
-# Image processing
-opencv-python
+# Image processing (Dùng bản headless nhẹ hơn 500MB)
+opencv-python-headless
 pillow
+flask
+cors
 
-# OCR & Detection
+# OCR & Detection (Chỉ giữ tên, cài đặt sẽ xử lý ở Dockerfile)
 paddleocr
-paddlepaddle
 ultralytics
 
-# LLM
+# LLM & Storage
 google-generativeai
-
-# Cloudinary
 cloudinary
