@@ -26,7 +26,7 @@ COPY ocr_llm/requirements.txt ./ocr_llm/
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 # 6. Cài PaddlePaddle CPU (ĐÃ SỬA: Bỏ mirror Baidu)
-RUN pip install --no-cache-dir paddlepaddle==3.3.2
+RUN pip install --no-cache-dir paddlepaddle
 
 # 7. Cài các thư viện còn lại
 RUN pip install --no-cache-dir -r ocr_llm/requirements.txt
