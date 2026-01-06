@@ -1,10 +1,19 @@
-paddlepaddle
-paddleocr
-google-generativeai
-numpy
-opencv-python
+# Core
 python-dotenv
-ultralytics
+requests
+numpy
+
+# Image processing
+opencv-python
 pillow
-axios
+
+# OCR & Detection
+paddleocr
+paddlepaddle
+ultralytics
+
+# LLM
+google-generativeai
+
+# Cloudinary
 cloudinary
