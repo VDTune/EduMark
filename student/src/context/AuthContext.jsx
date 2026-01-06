@@ -4,7 +4,7 @@ import axios from 'axios'
 
 const AuthContext = createContext()
 // URL của Teacher App
-const TEACHER_APP_URL = 'http://localhost:5174' 
+const TEACHER_APP_URL = 'http://localhost:5174'
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -13,33 +13,33 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    
+
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      
+
       axios.get('/api/users/profile')
         .then(res => {
           const userData = res.data.data
-          
+
           // LOGIC CHẶN VÒNG LẶP:
           // Nếu là teacher -> Đẩy sang trang Teacher
           if (userData.role === 'teacher') {
-             // Xóa token ở trang Student để tránh xung đột lần sau
-             localStorage.removeItem('token') 
-             window.location.href = TEACHER_APP_URL
+            // Xóa token ở trang Student để tránh xung đột lần sau
+            localStorage.removeItem('token')
+            window.location.href = TEACHER_APP_URL
           } else {
-             // Nếu là student -> Đúng nơi -> Set user
-             setUser(userData)
-             setLoading(false)
+            // Nếu là student -> Đúng nơi -> Set user
+            setUser(userData)
+            setLoading(false)
           }
         })
-        .catch((err) => { 
+        .catch((err) => {
           console.error("Profile fetch error:", err)
           localStorage.removeItem('token')
-          setLoading(false) 
+          setLoading(false)
         })
-    } else { 
-      setLoading(false) 
+    } else {
+      setLoading(false)
     }
   }, [])
 
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     const res = await axios.post('/api/users/login', { email, password, role })
     const userData = res.data.data
     const token = res.data.token
-    
+
     if (userData.role === 'teacher') {
       alert('Tài khoản này là Giáo viên. Đang chuyển sang trang Giáo viên...')
       // Không lưu token ở đây để tránh loop

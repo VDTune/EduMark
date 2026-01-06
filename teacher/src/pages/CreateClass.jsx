@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
+import TeacherLayout from '../layouts/TeacherLayout'
 
 const CreateClass = () => {
   const [name, setName] = useState('')
@@ -22,35 +23,21 @@ const CreateClass = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-10">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
-        <div className="max-padd-container">
-          <div className="flexBetween py-4">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flexCenter">
-                <span className="text-white font-bold text-sm">A</span>
-              </div>
-              <span className="bold-20 text-gray-90">Azota Classroom</span>
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-padd-container py-8 pt-20">
-        <div className="max-w-md mx-auto">
-          <div className="mb-8">
-            <Link to="/" className="flex items-center text-gray-50 hover:text-gray-90 mb-4 transition-colors">
+    <TeacherLayout>
+      <div className="min-h-[80vh] flex flex-col justify-center"> {/* Căn giữa theo chiều dọc */}
+        <div className="max-w-md mx-auto w-full">
+          <div className="mb-8 text-center sm:text-left">
+            <Link to="/" className="inline-flex items-center text-gray-500 hover:text-gray-900 mb-4 transition-colors">
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Quay lại
+              Quay lại Dashboard
             </Link>
-            <h1 className="h2 text-gray-90 mb-3">Tạo lớp học mới</h1>
-            <p className="regular-16 text-gray-50">Thêm lớp học để bắt đầu quản lý học sinh và bài tập</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Tạo lớp học mới</h1>
+            <p className="text-gray-500">Thêm lớp học để bắt đầu quản lý học sinh và bài tập</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-8">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 sm:p-8 shadow-sm">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -61,7 +48,7 @@ const CreateClass = () => {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Nhập tên lớp học"
+                  placeholder="Nhập tên lớp học (Ví dụ: 10A1)"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   required
                 />
@@ -70,7 +57,7 @@ const CreateClass = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
               >
                 {loading ? (
                   <div className="flex items-center justify-center">
@@ -85,7 +72,7 @@ const CreateClass = () => {
           </div>
         </div>
       </div>
-    </div>
+    </TeacherLayout>
   )
 }
 

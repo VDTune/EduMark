@@ -155,219 +155,105 @@ const ClassDetail = () => {
     return 'text-red-600'
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-10 flexCenter">
-        <div className="loading-spinner"></div>
-        <span className="ml-3 text-gray-50">Đang tải...</span>
+if (loading) return (
+      <div className="min-h-screen bg-gray-10 flex items-center justify-center pt-20">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
-    )
-  }
+  );
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-10 flexCenter">
-        <div className="text-center bg-white p-8 rounded-xl shadow-md">
-          <div className="text-red-500 text-xl mb-4">❌ {error}</div>
-          <div className="flex gap-4 justify-center">
-            <button 
-              onClick={() => navigate(-1)}
-              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
-            >
-              Quay lại
-            </button>
-            <button 
-              onClick={() => window.location.reload()}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
-            >
-              Thử lại
-            </button>
+  if (error) return (
+      <div className="min-h-screen bg-gray-10 pt-24 px-4">
+          <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-sm text-center">
+              <p className="text-red-500 mb-4">{error}</p>
+              <button onClick={() => navigate(-1)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Quay lại</button>
           </div>
-        </div>
       </div>
-    )
-  }
+  );
 
   return (
-    <div className="min-h-screen bg-gray-10">
-      <nav className="bg-white shadow-sm border-b border-gray-200 fixed top-0 w-full z-50">
-        <div className="max-padd-container">
-          <div className="flexBetween py-4">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flexCenter">
-                <span className="text-white font-bold text-sm">A</span>
-              </div>
-              <span className="bold-20 text-gray-90">Azota Classroom</span>
+    <div className="min-h-screen bg-gray-10 pt-5 pb-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* Breadcrumb & Header */}
+        <div className="mb-8">
+            <Link to="/" className="inline-flex items-center text-gray-500 hover:text-blue-600 mb-4 transition-colors font-medium text-sm">
+                <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Quay lại danh sách
             </Link>
-            <div className="text-right">
-              <h1 className="medium-18 text-gray-90">{classInfo?.name}</h1>
-              <p className="regular-14 text-gray-50">
-                Giáo viên: {classInfo?.teacher?.name || 'Chưa có thông tin'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Content */}
-      <div className="max-padd-container py-8 pt-20">
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-gray-50 hover:text-gray-90 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Quay lại
-        </button>
-        <div className="flexBetween mb-8">
-          <div>
-            <h1 className="h1 text-gray-90 mb-2">Bài tập trong lớp</h1>
-            <p className="regular-16 text-gray-50">
-              Tổng số bài tập: {assignments.length}
-              {classInfo?.students && ` • Số học sinh: ${classInfo.students.length}`}
-            </p>
-          </div>
-        </div>
-
-        {assignments.length === 0 ? (
-          <div className="flexCenter flex-col py-12 bg-white rounded-xl border border-gray-200">
-            <div className="w-20 h-20 bg-gray-10 rounded-full flexCenter mb-4">
-              <svg className="w-8 h-8 text-gray-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h3 className="medium-20 text-gray-90 mb-2">Chưa có bài tập nào</h3>
-            <p className="regular-15 text-gray-50 text-center">
-              {user?.role === 'teacher'
-                ? 'Hãy tạo bài tập mới cho lớp học của bạn.'
-                : 'Giáo viên sẽ đăng bài tập mới trong thời gian tới.'
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {assignments.filter(asg => asg.isSubmitRequired).map(asg => {
-              const deadlineDate = asg.deadline ? new Date(asg.deadline) : null;
-              const isOverdue = asg.deadline && new Date(asg.deadline) < new Date()
-              // Nếu quá hạn VÀ không cho nộp muộn (allowLate = false) => Bị khóa
-              const isLocked = isOverdue && !asg.allowLate;
-              const isDueSoon = asg.deadline && new Date(asg.deadline) > new Date() && new Date(asg.deadline) < new Date(Date.now() + 24 * 60 * 60 * 1000)
-              const submissionStatus = getSubmissionStatus(asg._id)
-              const submission = submissions[asg._id]
-              
-              console.log(`Rendering assignment ${asg._id}:`, { submission, submissionStatus })
-              
-              return (
-                <div 
-                  key={asg._id} 
-                  className="bg-white rounded-xl border border-gray-200 hover:shadow-md transition-all duration-300 hover:border-blue-200"
-                >
-                  <div className="p-6">
-                    <div className="flexBetween mb-3">
-                      <div className="flex-1">
-                        <Link 
-                          to={`/assignment/${asg._id}`}
-                          className="medium-18 text-gray-90 hover:text-blue-600 transition-colors mb-1 block"
-                        >
-                          {asg.title}
-                        </Link>
-                        {asg.teacherId && (
-                          <p className="regular-14 text-gray-30">
-                            Giáo viên: {asg.teacherId.name}
-                          </p>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        {/* Trạng thái nộp bài và điểm số - CHỈ HIỂN THỊ CHO HỌC SINH */}
-                        {user?.role === 'student' && (
-                          <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${submissionStatus.bgColor} ${submissionStatus.color} border`}>
-                            <span>{submissionStatus.icon}</span>
-                            <span>{submissionStatus.text}</span>
-                          </div>
-                        )}
-
-                        {/* Trạng thái deadline */}
-                        {asg.deadline && (
-                          <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${
-                            isLocked ? 'bg-gray-100 text-gray-600 border-gray-300' :
-                            isOverdue ? 'bg-red-50 text-red-700 border border-red-200' : 
-                            isDueSoon ? 'bg-orange-50 text-orange-700 border border-orange-200' : 
-                            'bg-green-50 text-green-700 border border-green-200'
-                          }`}>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {isLocked ? 'Đã khóa' : isOverdue ? 'Quá hạn (Được nộp muộn)' : isDueSoon ? 'Sắp đến hạn' : 'Còn thời gian'}
-                          </div>
-                        )}
-                      </div>
+            
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{classInfo?.name}</h1>
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                        <span className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            {classInfo?.teacher?.name}
+                        </span>
+                        <span>•</span>
+                        <span>{assignments.length} bài tập</span>
                     </div>
-                    
-                    <p className="regular-15 text-gray-50 mb-4 line-clamp-2">
-                      {asg.description || 'Không có mô tả'}
-                    </p>
-
-                    {/* Hiển thị thông tin chi tiết về bài nộp nếu có - CHỈ CHO HỌC SINH */}
-                    {user?.role === 'student' && submission && (
-                      <div className="mb-4 p-3 bg-gray-10 rounded-lg border border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="text-gray-50">
-                              📅 Nộp lúc: {new Date(submission.submittedAt).toLocaleString('vi-VN')}
-                            </span>
-                            
-                            {submission.grade !== undefined && submission.grade !== null && !isNaN(submission.grade) && (
-                              <div className="flex items-center gap-2">
-                                <span className={`font-bold ${getGradeColor(submission.grade)}`}>
-                                  🎯 Điểm: {parseFloat(submission.grade).toFixed(1)}
-                                </span>
-                                {submission.feedback && (
-                                  <span className="text-blue-600">
-                                    💬 Có phản hồi
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          
-                          {submission.fileUrl && (
-                            <div className="flex items-center gap-1 text-blue-600 text-sm">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                              </svg>
-                              📎 Có file
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="flexBetween">
-                      <div className="flex items-center gap-4 text-sm text-gray-30">
-                        {asg.deadline ? (
-                          <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            Hạn nộp: {new Date(asg.deadline).toLocaleString('vi-VN')}
-                          </span>
-                        ) : (
-                          <span className="text-gray-20">Không có hạn nộp</span>
-                        )}
-                      </div>
-                      <Link 
-                        to={`/assignment/${asg._id}`}
-                        className="text-blue-600 medium-14 hover:translate-x-1 transition-transform inline-block"
-                      >
-                        {user?.role === 'student' ? 'Xem chi tiết →' : 'Xem bài tập →'}
-                      </Link>
-                    </div>
-                  </div>
                 </div>
-              )
-            })}
+            </div>
+        </div>
+
+        {/* Assignment List */}
+        {assignments.length === 0 ? (
+           <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-300">
+                   <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+               </div>
+               <p className="text-gray-500 font-medium">Chưa có bài tập nào trong lớp này.</p>
+           </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+             {assignments.filter(asg => asg.isSubmitRequired).map(asg => {
+                 const isOverdue = asg.deadline && new Date(asg.deadline) < new Date();
+                 const isLocked = isOverdue && !asg.allowLate;
+                 const submissionStatus = getSubmissionStatus(asg._id);
+                 const submission = submissions[asg._id];
+                 
+                 return (
+                     <div key={asg._id} className="group bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all duration-300">
+                         <div className="flex flex-col md:flex-row gap-4 justify-between">
+                             {/* Left Info */}
+                             <div className="flex-1">
+                                 <div className="flex items-center gap-3 mb-2">
+                                     <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                         <Link to={`/assignment/${asg._id}`} className="focus:outline-none">
+                                            {asg.title}
+                                            <span className="absolute inset-0 md:hidden"></span>
+                                         </Link>
+                                     </h3>
+                                     {/* Status Badge */}
+                                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${submissionStatus.bgColor} ${submissionStatus.color} ${submissionStatus.border}`}>
+                                         {submissionStatus.text}
+                                     </span>
+                                 </div>
+                                 
+                                 <p className="text-sm text-gray-500 mb-3 line-clamp-2">{asg.description || 'Không có mô tả'}</p>
+                                 
+                                 <div className="flex items-center gap-4 text-xs font-medium">
+                                     {asg.deadline ? (
+                                         <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
+                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                             {isLocked ? 'Đã khóa' : isOverdue ? 'Quá hạn' : 'Hạn nộp:'} {new Date(asg.deadline).toLocaleString('vi-VN')}
+                                         </span>
+                                     ) : (
+                                         <span className="text-gray-400">Không có thời hạn</span>
+                                     )}
+                                 </div>
+                             </div>
+
+                             {/* Right Action (Desktop) */}
+                             <div className="hidden md:flex flex-col items-end justify-center min-w-[120px]">
+                                 <Link to={`/assignment/${asg._id}`} className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm hover:bg-blue-600 hover:text-white transition-all">
+                                     {submission ? 'Xem lại' : 'Làm bài'}
+                                 </Link>
+                             </div>
+                         </div>
+                     </div>
+                 )
+             })}
           </div>
         )}
       </div>
