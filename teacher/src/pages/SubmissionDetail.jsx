@@ -229,7 +229,7 @@ const SubmissionDetail = () => {
                             </div>
 
                             <button
-                                onClick={handleSaveGrade}
+                                onClick={() => handleSaveGrade()}
                                 disabled={saving}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-blue-500/30 transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2 mt-2"
                             >
