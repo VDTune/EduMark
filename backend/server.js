@@ -16,14 +16,16 @@ connectDB()
 const app = express()
 
 /* =======================
-   ✅ CORS – FIX MẤT COOKIE
+   ✅ CORS – CẤU HÌNH CHO PHÉP VERCEL
 ======================= */
 app.use(cors({
   origin: [
-    process.env.CLIENT_URL,
-    process.env.CLIENT_TEACHER_URL
+    'http://localhost:5173', // Cho phép chạy ở máy nhà (Student)
+    'http://localhost:5174', // Cho phép chạy ở máy nhà (Teacher)
+    'https://edumark-teacher.vercel.app', // ✅ Link Vercel Teacher (Copy y hệt từ lỗi báo)
+    'https://edumark-student.vercel.app'  // ✅ Link Vercel Student (Thêm luôn cho chắc)
   ],
-  credentials: true
+  credentials: true // Cho phép nhận cookie/token
 }))
 
 // Cho phép preflight
