@@ -4,6 +4,7 @@ import io
 import os
 import shutil
 import requests
+import uuid
 from concurrent.futures import ProcessPoolExecutor
 from dotenv import load_dotenv
 
@@ -23,8 +24,9 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 # Cấu hình thư mục tạm
-TEMP_RAW_DIR = "uploads/temp/raw"
-TEMP_CLEAN_DIR = "uploads/temp/cleaned"
+RUN_ID = uuid.uuid4().hex
+TEMP_RAW_DIR = os.path.join("uploads", "temp", "raw", RUN_ID)
+TEMP_CLEAN_DIR = os.path.join("uploads", "temp", "cleaned", RUN_ID)
 
 os.makedirs(TEMP_RAW_DIR, exist_ok=True)
 os.makedirs(TEMP_CLEAN_DIR, exist_ok=True)
@@ -50,7 +52,8 @@ def main():
         print(json.dumps({"error": "Usage: python main_processor.py <urls> <rubric>"}))
         sys.exit(1)
 
-    raw_urls = sys.argv[1].split(",")
+    # Split and strip URLs to avoid whitespace issues
+    raw_urls = [u.strip() for u in sys.argv[1].split(",") if u.strip()]
     rubric = sys.argv[2]
 
     download_raw_paths = []
