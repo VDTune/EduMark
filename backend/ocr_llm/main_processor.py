@@ -77,7 +77,7 @@ def main():
             raise Exception("No valid images were downloaded.")
         
         # --- BƯỚC 2. LÀM SẠCH ẢNH SONG SONG ---
-        cleaned_result = clean_images_parallel(download_raw_paths, max_workers=2)
+        cleaned_result = clean_images_parallel(download_raw_paths, max_workers=1)
         if not cleaned_result:
             raise Exception("No images could be cleaned.")
         
@@ -98,7 +98,7 @@ def main():
                 cleaned_cloud.append(None) 
 
         # --- BƯỚC 4: CHẠY OCR (Trên ảnh Cleaned) ---
-        ocr_results_rich = ocr_batch_parallel(cleaned_local, max_workers=2)
+        ocr_results_rich = ocr_batch_parallel(cleaned_local, max_workers=1)
 
         # --- BƯỚC 5: XỬ LÝ LOGIC MCQ & CONTEXT (Từ Main 2) ---
         mcq_grader = MCQGrader()
@@ -161,7 +161,7 @@ def main():
         # LLM sẽ nhìn vào ảnh clean (dễ đọc chữ) + context text
         submission_payload = [(cleaned_local, rubric, final_context)]
         
-        grading_result = grade_multiple_submissions_parallel(submission_payload, max_workers=2)[0]
+        grading_result = grade_multiple_submissions_parallel(submission_payload, max_workers=1)[0]
         log("Grading complete.")
 
         # --- BƯỚC 7: TRẢ VỀ JSON ---
