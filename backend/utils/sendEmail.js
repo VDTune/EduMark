@@ -7,7 +7,7 @@ const sendEmail = async ({ email, subject, message }) => {
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM,
       to: email,
-      subject: subject,
+      subject,
       html: message,
     });
 
@@ -20,7 +20,7 @@ const sendEmail = async ({ email, subject, message }) => {
     return true;
   } catch (error) {
     console.error("❌ SEND EMAIL FAILED:", error);
-    throw new Error("Không thể gửi email");
+    throw error;
   }
 };
 
