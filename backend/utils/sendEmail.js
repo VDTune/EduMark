@@ -1,45 +1,26 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-const sendEmail = async (options) => {
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const sendEmail = async ({ email, subject, message }) => {
   try {
-    // 1️⃣ Tạo transporter (chống treo trên Railway)
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true, // BẮT BUỘC true với port 465
-      auth: {
-        user: process.env.EMAIL_USERNAME,
-        pass: process.env.EMAIL_PASSWORD, // App Password (KHÔNG dấu cách)
-      },
-
-      // 🔥 CỰC KỲ QUAN TRỌNG CHO RAILWAY / DOCKER
-      family: 4,                 // ép IPv4
-      connectionTimeout: 10000,  // 10s
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: subject,
+      html: message,
     });
 
-    // 2️⃣ Cấu hình email
-    const mailOptions = {
-      from: `"EduMark Support" <${process.env.EMAIL_USERNAME}>`,
-      to: options.email,
-      subject: options.subject,
-      html: options.message,
-    };
+    if (error) {
+      console.error("❌ RESEND ERROR:", error);
+      throw new Error(error.message);
+    }
 
-    // 3️⃣ Gửi email
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent:", info.messageId);
-
+    console.log("✅ Email sent via Resend:", data.id);
     return true;
   } catch (error) {
-    console.error("❌ SEND EMAIL ERROR:", {
-      message: error.message,
-      code: error.code,
-      response: error.response,
-    });
-
-    throw new Error("Không thể gửi email, vui lòng thử lại sau.");
+    console.error("❌ SEND EMAIL FAILED:", error);
+    throw new Error("Không thể gửi email");
   }
 };
 
