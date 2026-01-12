@@ -10,7 +10,18 @@ from paddleocr import PaddleOCR
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-_ocr_model = None                            
+_ocr_model = None   
+
+def get_ocr_model():
+    global _ocr_model
+    if _ocr_model is None:
+        print("🔁 Loading PaddleOCR model (singleton)...")
+        _ocr_model = PaddleOCR(
+            use_angle_cls=True,
+            lang='en',
+            device='cpu'
+        )
+    return _ocr_model
 
 def extract_text_from_image(image_path):
     """
@@ -26,8 +37,7 @@ def extract_text_from_image(image_path):
     try:
         # Lấy model (đã load hoặc load mới)
         # ocr = get_ocr_model()
-        from paddleocr import PaddleOCR
-        ocr = PaddleOCR(use_angle_cls=True, lang='en', device='cpu')
+        ocr = ocr = get_ocr_model()
 
         img_array = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
 
@@ -35,7 +45,7 @@ def extract_text_from_image(image_path):
             print("🛑 Error: OpenCV can not read image file (File error or corrupted).")
             return ""
         
-        TARGET_WIDTH = 2000
+        TARGET_WIDTH = 1400
         height, width, _ = img_array.shape
         
         # Chỉ resize nếu chiều rộng không nằm trong khoảng tối ưu
@@ -69,8 +79,6 @@ def extract_text_from_image(image_path):
                     text = text_tuple[0]
                     score = text_tuple[1]
                     
-                    print(f"Text: {text} | Reliability: {score:.2f}")
-                    
                     final_structure.append({
                         'text': text,
                         'score': score #Reliability
@@ -85,7 +93,6 @@ def extract_text_from_image(image_path):
             
             if texts and scores:
                 for t, s in zip(texts, scores):
-                    print(f"Text: {t} | Reliability: {s:.2f}")
                     final_structure.append(t)
                     score_list.append(s)
             else:

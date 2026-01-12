@@ -15,46 +15,40 @@ import fs from 'fs'
  * @param {string} answerKey - Đáp án của bài tập.
  */
 const runAiGradingInBackground = async (submissionId, fileUrls, answerKey) => {
-  console.log(`[AI Background] Bắt đầu chấm điểm cho submission: ${submissionId}`);
   try {
-    // 1. Đảm bảo ảnh ở local cho AI (URL → temp nếu cần)
-    const localImagePaths = []
+    const submission = await Submission.findById(submissionId);
+    if (!submission) return;
 
+    // ❌ Giáo viên đã chấm → KHÔNG cho AI ghi đè
+    if (submission.grade !== null && submission.gradedBy) {
+      console.log("[AI] Skip - teacher already graded");
+      return;
+    }
+
+    const localPaths = [];
     for (const img of fileUrls) {
-      const localPath = await ensureLocalImage(img)
-      localImagePaths.push(localPath)
+      const p = await ensureLocalImage(img);
+      localPaths.push(p);
     }
 
-    // 2. Gọi AI với file local (KHÔNG SỬA AI)
-    const aiGradingResult = await executePythonScript(localImagePaths, answerKey);
+    const aiResult = await executePythonScript(localPaths, answerKey);
 
-    // 3. Xóa file temp sau khi AI chạy xong
-    for (const p of localImagePaths) {
-      if (p.includes(`${path.sep}uploads${path.sep}temp${path.sep}`)) {
-        fs.unlink(p, () => {})
-      }
+    if (!aiResult || aiResult.score === undefined) {
+      console.log("[AI] Empty result → skip update");
+      return;
     }
 
+    await Submission.findByIdAndUpdate(submissionId, {
+      aiScore: aiResult.score,
+      aiFeedback: aiResult.comment || "",
+      aidetail: aiResult.details || {}
+    });
 
-    // Cập nhật bài nộp với kết quả từ AI
-    if (aiGradingResult && Object.keys(aiGradingResult).length > 0) {
-      const updatedSubmission = await Submission.findByIdAndUpdate(
-        submissionId,
-        {
-          aiScore: aiGradingResult?.score ?? null,
-          aiFeedback: aiGradingResult?.comment ?? aiGradingResult?.feedback ?? null,
-          aidetail: aiGradingResult?.details ?? [],
-        },
-        { new: true }
-      );
-      console.log(`[AI Background] Đã cập nhật điểm AI cho submission: ${submissionId}`, { score: updatedSubmission.aiScore });
-    } else {
-      console.log(`[AI Background] Không có kết quả từ AI cho submission: ${submissionId}`);
-    }
-  } catch (error) {
-    console.error(`[AI Background] Lỗi nghiêm trọng khi chấm điểm cho submission ${submissionId}:`, error);
+  } catch (err) {
+    console.error("[AI] Error:", err);
   }
 };
+
 
 const submitAssignment = async (req, res) => {
   try {

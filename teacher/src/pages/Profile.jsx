@@ -106,7 +106,7 @@ const Profile = () => {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 font-medium">Lớp học tham gia</p>
+                    <p className="text-sm text-gray-500 font-medium">Lớp giảng dạy</p>
                     <p className="text-2xl font-bold text-gray-900">{user?.classes?.length || 0}</p>
                   </div>
                 </div>
